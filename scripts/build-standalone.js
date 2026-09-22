@@ -351,9 +351,11 @@ ${extraCss}
 
 <script>
 const TWEAK_DEFAULTS = {
-  "demoScene": "${demoScene}"
+  "demoScene": "${demoScene}",
+  "scheme": "A"
 };
 window.__TWEAK_DEFAULTS = TWEAK_DEFAULTS;
+window.__LIVE_TWEAKS = { demoScene: "${demoScene}", scheme: "A" };
 ${lockedScript}
 </script>
 
@@ -390,9 +392,11 @@ BUILDS.forEach((cfg) => {
   }
 
   if (cfg.alsoWriteIndex) {
+    // 方案对比仓库入口：解锁 Tweaks，方便线上切换 A/A+/B/B+/B++/C/D
     const indexHtml = buildHtml({
       ...cfg,
       title: cfg.indexTitle || cfg.title,
+      locked: false,
       builtAt,
     });
     const indexPath = path.join(DOCS, 'index.html');

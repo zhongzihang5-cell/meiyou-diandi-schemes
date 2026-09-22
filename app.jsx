@@ -671,6 +671,7 @@ function App(){
   const [timeline, setTimeline] = useState(initial.timeline);
 
   React.useEffect(()=>{
+    // 切换方案：清空输入与经期编排态，避免内容串到下一方案
     setPeriodComposeActive(false);
     setDraftGuide('');
     setDraft('');
@@ -682,6 +683,7 @@ function App(){
     setComposeSeqCompleted(false);
     setComposeDPrompts(null);
     setFeedingQuickExpanded(false);
+    setDockForceTextKey((k)=>k + 1);
   }, [t.scheme]);
 
   const [toasts, setToasts] = useState([]);
@@ -1943,8 +1945,13 @@ function App(){
   React.useEffect(()=>{
     if(!periodComposeActive) return;
     let cancelled = false;
-    const pushTodayAboveKeyboard = ()=>{
+    const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
+    const pushForKeyboard = ()=>{
       if(cancelled) return;
+      if(scheme === 'D'){
+        scrollTimelineToBottom('smooth');
+        return;
+      }
       const el = streamRef.current;
       if(!el) return;
       const today = el.querySelector('.tl-day-section-head.is-today')
@@ -1957,14 +1964,14 @@ function App(){
       }
       el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight), behavior: 'smooth' });
     };
-    const t1 = setTimeout(pushTodayAboveKeyboard, 60);
-    const t2 = setTimeout(pushTodayAboveKeyboard, 300);
+    const t1 = setTimeout(pushForKeyboard, 60);
+    const t2 = setTimeout(pushForKeyboard, 300);
     return ()=>{
       cancelled = true;
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [periodComposeActive]);
+  }, [periodComposeActive, t.scheme]);
 
   // 快捷平铺向上展开：时间轴同步上推，保证「今天」可见；收起回落
   React.useEffect(()=>{
@@ -3534,6 +3541,7 @@ function App(){
         ) : null}
         {!voiceTranscribe && (
         <DockPublisher
+          key={'dock-empty-'+String(t.scheme || 'A')}
           draft={draft}
           draftGuide={periodComposeActive ? draftGuide : ''}
           onDraft={handleDraftChange}
@@ -3653,6 +3661,7 @@ function App(){
 
         {!voiceTranscribe && (
         <DockPublisher
+          key={'dock-main-'+String(t.scheme || 'A')}
           draft={draft}
           draftGuide={periodComposeActive ? draftGuide : ''}
           onDraft={handleDraftChange}

@@ -591,8 +591,10 @@ function DockPublisher({
       const el = textAreaRef.current;
       if(!el) return;
       el.focus({ preventScroll: true });
+      setInputFocused(true);
       requestAnimationFrame(()=>{
         el.focus();
+        setInputFocused(true);
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 72) + 'px';
         const len = el.value.length;
@@ -601,6 +603,19 @@ function DockPublisher({
     }, 40);
     return ()=>clearTimeout(t);
   }, [forceTextModeKey]);
+
+  // 方案 C：进入后强制聚焦内联输入，保证「月经来了」后可见光标
+  React.useEffect(()=>{
+    if(composeVariant !== 'C' || inputMode !== 'text') return;
+    const t = setTimeout(()=>{
+      const el = textAreaRef.current;
+      if(!el) return;
+      el.focus({ preventScroll: true });
+      setInputFocused(true);
+      try{ el.setSelectionRange(el.value.length, el.value.length); }catch(_){}
+    }, 60);
+    return ()=>clearTimeout(t);
+  }, [composeVariant, forceTextModeKey, inputMode]);
 
   // B++：句内高亮与 textarea 宽度不一致时，强制光标停在句末，避免「看起来插在中间」
   React.useEffect(()=>{
@@ -1360,6 +1375,8 @@ function DockPublisher({
                         const value = composeChipValues?.[chip.id] || '';
                         return !value || composeOpenChip === chip.id;
                       });
+                      const extraText = String(composeExtra || '');
+                      const showFakeCaret = inputFocused && !extraText;
                       return (
                         <>
                           {confirmed.map((chip)=>(
@@ -1375,13 +1392,13 @@ function DockPublisher({
                               </button>
                             </React.Fragment>
                           ))}
-                          {confirmed.length && pending.length ? (
+                          {confirmed.length && (pending.length || extraText) ? (
                             <span className="dock-scheme-c-comma" aria-hidden="true">，</span>
                           ) : null}
                           <textarea
                             ref={textAreaRef}
                             rows="1"
-                            className="dock-scheme-c-inline-input"
+                            className={'dock-scheme-c-inline-input'+(extraText ? '' : ' is-empty')}
                             placeholder=""
                             aria-label="补充记录"
                             value={composeExtra}
@@ -1404,6 +1421,7 @@ function DockPublisher({
                               }
                             }}
                           />
+                          {showFakeCaret ? <span className="dock-scheme-c-caret" aria-hidden="true"/> : null}
                           {pending.map((chip)=>{
                             const value = composeChipValues?.[chip.id] || '';
                             const isOpen = composeOpenChip === chip.id;
