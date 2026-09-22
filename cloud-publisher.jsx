@@ -584,8 +584,12 @@ function DockPublisher({
     setInputMode(defaultInputMode);
   }, [defaultInputMode]);
 
+  const prevForceTextModeKeyRef = React.useRef(forceTextModeKey);
   React.useEffect(()=>{
-    if(!forceTextModeKey) return;
+    const prev = prevForceTextModeKeyRef.current;
+    prevForceTextModeKeyRef.current = forceTextModeKey;
+    // 仅在 key 真正递增时聚焦（避免切方案重置/重挂载时误弹键盘）
+    if(!forceTextModeKey || forceTextModeKey <= prev) return;
     setInputMode('text');
     const t = setTimeout(()=>{
       const el = textAreaRef.current;
@@ -607,6 +611,8 @@ function DockPublisher({
   // 方案 C：进入后强制聚焦内联输入，保证「月经来了」后可见光标
   React.useEffect(()=>{
     if(composeVariant !== 'C' || inputMode !== 'text') return;
+    // 没有经期编排时不自动聚焦（切方案后 composeVariant 会变 null）
+    if(!forceTextModeKey) return;
     const t = setTimeout(()=>{
       const el = textAreaRef.current;
       if(!el) return;

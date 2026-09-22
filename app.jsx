@@ -669,9 +669,11 @@ function App(){
   const [schemeDMarqueeKey, setSchemeDMarqueeKey] = useState(0);
   const [dockForceTextKey, setDockForceTextKey] = useState(0);
   const [timeline, setTimeline] = useState(initial.timeline);
+  const schemeSwitchGuardRef = useRef(0);
 
   React.useEffect(()=>{
-    // 切换方案：清空输入与经期编排态，避免内容串到下一方案；不强制弹键盘
+    // 切换方案：清空输入与经期编排态；阻断短时内因 focus 再次弹键盘
+    schemeSwitchGuardRef.current = Date.now();
     setPeriodComposeActive(false);
     setDraftGuide('');
     setDraft('');
@@ -683,6 +685,11 @@ function App(){
     setComposeSeqCompleted(false);
     setComposeDPrompts(null);
     setFeedingQuickExpanded(false);
+    setDockForceTextKey(0);
+    if(typeof document !== 'undefined'){
+      const active = document.activeElement;
+      if(active && typeof active.blur === 'function') active.blur();
+    }
   }, [t.scheme]);
 
   const [toasts, setToasts] = useState([]);
@@ -3320,6 +3327,8 @@ function App(){
   };
 
   const reopenPeriodComposeFromInput = ()=>{
+    // 刚切完方案时忽略自动 focus，避免键盘再次弹起
+    if(Date.now() - schemeSwitchGuardRef.current < 500) return;
     if(periodComposeActive) return;
     if(recordLifeMode !== '经期') return;
     setPeriodComposeActive(true);
@@ -3540,7 +3549,6 @@ function App(){
         ) : null}
         {!voiceTranscribe && (
         <DockPublisher
-          key={'dock-empty-'+String(t.scheme || 'A')}
           draft={draft}
           draftGuide={periodComposeActive ? draftGuide : ''}
           onDraft={handleDraftChange}
@@ -3660,7 +3668,6 @@ function App(){
 
         {!voiceTranscribe && (
         <DockPublisher
-          key={'dock-main-'+String(t.scheme || 'A')}
           draft={draft}
           draftGuide={periodComposeActive ? draftGuide : ''}
           onDraft={handleDraftChange}
@@ -3800,7 +3807,7 @@ function App(){
                   label="当前方案"
                   value={t.scheme || 'A'}
                   options={[
-                    {value:'A', label:'方案 A'},
+                    {value:'A', label:'方案 A · 推荐'},
                     {value:'A+', label:'方案 A+'},
                     {value:'B', label:'方案 B · 推荐'},
                     {value:'B+', label:'方案 B+'},
@@ -3812,7 +3819,7 @@ function App(){
                 />
               </TweakSection>
               {(t.scheme || 'A') === 'A' ? (
-                <TweakSection label="方案 A">
+                <TweakSection label="方案 A · 推荐">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                     月经来了：量多还是少…／月经走了：身体症状是…
                   </div>
