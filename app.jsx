@@ -192,6 +192,17 @@ const PERIOD_COMPOSE_MUTEX_PAIRS_BPLUS = [
 ];
 const PERIOD_COMPOSE_GUIDE_B = '记点感受…';
 const PERIOD_COMPOSE_GUIDE_C = '记点感受…';
+/** 方案 B++ · 接续式标签：一次一组，选完自动下一组 */
+const SCHEME_BPP_GROUPS_START_TAIL = [
+  { id:'flow', label:'经量', options:['量有点少', '量正常', '量比较多'] },
+  { id:'pain', label:'疼痛', options:['完全不痛', '有点痛经', '比较痛'] },
+  { id:'color', label:'颜色', options:['鲜红色', '褐色', '有血块'] },
+];
+const SCHEME_BPP_GROUPS_END_TAIL = [
+  { id:'status', label:'干净程度', options:['彻底干净了', '还有一点点'] },
+  { id:'remain', label:'残留', options:['还有点褐色', '完全不痛了'] },
+];
+const SCHEME_BPP_DAY_RE = /^(今天|昨天|前天|\d{1,2}月\d{1,2}日)/;
 const SCHEME_C_DAY_OPTIONS = ['今天', '昨天'];
 const SCHEME_C_FLOW_OPTIONS = [
   { label:'非常少量', hint:'' },
@@ -281,22 +292,145 @@ function parseSchemeCDayLabel(label){
 }
 
 function resolvePeriodComposeGuide(scheme, kind){
-  if(scheme === 'B' || scheme === 'B+') return PERIOD_COMPOSE_GUIDE_B;
-  if(scheme === 'C') return '';
+  if(scheme === 'B' || scheme === 'B+' || scheme === 'B++') return '';
+  if(scheme === 'C' || scheme === 'D') return '';
   if(scheme === 'A+') return '';
   return kind === 'end' ? '身体症状是...' : '量多还是少...';
 }
 
+function schemeBppEventWord(kind){
+  return kind === 'end' ? '走了' : '来了';
+}
+
+function schemeBppEventPhrase(kind){
+  return kind === 'end' ? '月经走了' : '月经来了';
+}
+
+/** 日期组芯片：昨天来了 / 前天来了 */
+function schemeBppDayChips(kind){
+  const suffix = schemeBppEventWord(kind);
+  return [
+    `昨天${suffix}`,
+    `前天${suffix}`,
+  ];
+}
+
+function schemeBppDayChipToLabel(chip, kind){
+  const suffix = schemeBppEventWord(kind);
+  const raw = String(chip || '');
+  if(raw === `昨天${suffix}` || raw === '昨天') return '昨天';
+  if(raw === `前天${suffix}` || raw === '前天') return '前天';
+  const abs = raw.match(/^(\d{1,2}月\d{1,2}日)/);
+  if(abs) return abs[1];
+  if(raw === '今天') return '今天';
+  return raw.replace(new RegExp(suffix + '$'), '') || raw;
+}
+
+function schemeBppDayLabelFromDraft(draftText){
+  return SCHEME_BPP_DAY_RE.exec(String(draftText || ''))?.[1] || '';
+}
+
+function schemeBppDayChipSelected(draftText, chip, kind){
+  const label = schemeBppDayChipToLabel(chip, kind);
+  const cur = schemeBppDayLabelFromDraft(draftText);
+  if(!label || !cur) return false;
+  return cur === label;
+}
+
+function schemeBppGroups(kind){
+  const dayGroup = { id:'day', label:'日期', options: schemeBppDayChips(kind) };
+  const tail = kind === 'end' ? SCHEME_BPP_GROUPS_END_TAIL : SCHEME_BPP_GROUPS_START_TAIL;
+  return [dayGroup, ...tail];
+}
+
+function findSchemeBppGroupByOption(tag, kind){
+  return schemeBppGroups(kind).find((g)=>g.options.includes(tag)) || null;
+}
+
+function applySchemeBppTagToDraft(draftText, group, tag, kind='start'){
+  let next = String(draftText || '').replace(/[，,\u2009\u2006\u00A0\s]+$/, '');
+  if(!group || !tag) return next;
+  if(group.id === 'day'){
+    const dayLabel = schemeBppDayChipToLabel(tag, kind);
+    const event = schemeBppEventPhrase(kind);
+    if(SCHEME_BPP_DAY_RE.test(next) && /月经(来了|走了)/.test(next)){
+      next = next.replace(/^(今天|昨天|前天|\d{1,2}月\d{1,2}日)(月经来了|月经走了)/, dayLabel + event);
+    }else if(SCHEME_BPP_DAY_RE.test(next)){
+      next = next.replace(SCHEME_BPP_DAY_RE, dayLabel);
+    }else if(/^(月经来了|月经走了)/.test(next)){
+      next = dayLabel + next;
+    }else{
+      next = dayLabel + event + (next ? (next.startsWith('，') ? next : '，' + next) : '');
+    }
+    return next;
+  }
+  group.options.forEach((opt)=>{
+    next = removeComposeTagFromDraft(next, opt);
+  });
+  next = String(next || '').replace(/[，,\u2009\u2006\u00A0\s]+$/, '');
+  if(!next) return tag;
+  if(/月经(来了|走了)$/.test(next)) return next + '，' + tag;
+  return next + '，' + tag;
+}
+
+function parseSchemeBppDraftTokens(draftText, kind){
+  const raw = String(draftText || '').replace(/[，,\u2009\u2006\u00A0\s]+$/, '');
+  const groups = schemeBppGroups(kind);
+  const day = schemeBppDayLabelFromDraft(raw);
+  let rest = day ? raw.slice(day.length) : raw;
+  const eventMatch = /^(月经来了|月经走了)/.exec(rest);
+  const event = eventMatch ? eventMatch[1] : '';
+  if(event) rest = rest.slice(event.length).replace(/^[，,\s]+/, '');
+  const tags = rest.split(/[，,]/).map((s)=>s.trim()).filter(Boolean);
+  const tokens = [];
+  if(day) tokens.push({ text:day, groupId:'day', kind:'day' });
+  if(event) tokens.push({ text:event, groupId:null, kind:'event' });
+  tags.forEach((tag)=>{
+    const g = groups.find((x)=>x.id !== 'day' && x.options.includes(tag));
+    tokens.push({ text:tag, groupId:g?.id || null, kind:'tag' });
+  });
+  return tokens;
+}
+
+function schemeBppOptionSelected(draftText, group, tag, kind='start'){
+  if(!group || !tag) return false;
+  if(group.id === 'day') return schemeBppDayChipSelected(draftText, tag, kind);
+  return draftHasComposeTag(draftText, tag);
+}
+
+/** 首屏第一组：日期 */
+function schemeBppInitialGroupIndex(){
+  return 0;
+}
+
+function schemeBppGroupIndexById(groupId, kind){
+  const idx = schemeBppGroups(kind).findIndex((g)=>g.id === groupId);
+  return idx >= 0 ? idx : 0;
+}
+
 function periodComposeInlineTail(scheme, kind){
-  if(scheme !== 'A+') return '';
+  if(scheme !== 'A+' && scheme !== 'D') return '';
   return kind === 'end' ? '，症状是' : '，流量是';
 }
 
 function buildPeriodComposeSeedDraft(scheme, kind){
-  const base = kind === 'end' ? '今天月经走了' : '今天月经来了';
+  // B++：点进来只有「月经来了／走了」，日期由首组标签补上
+  const base = scheme === 'B++'
+    ? (kind === 'end' ? '月经走了' : '月经来了')
+    : (kind === 'end' ? '今天月经走了' : '今天月经来了');
   const tail = periodComposeInlineTail(scheme, kind);
   return tail ? (base + tail) : (base + ' ');
 }
+
+const SCHEME_D_COMPOSE_PROMPTS = [
+  { id:'plain', kind:'plain', label:'今天月经来了' },
+  { id:'start', kind:'start', label:'月经来了，流量是…' },
+  { id:'end', kind:'end', label:'月经走了，身体感觉…' },
+];
+const PERIOD_DOCK_QUICK_ITEMS_D = [
+  { id:'period-record', label:'记经期', action:'period-compose-d', text:'记经期' },
+  ...PERIOD_DOCK_QUICK_ITEMS.filter((item)=>item.id !== 'period-start' && item.id !== 'period-end'),
+];
 
 function periodComposeMutexPairs(scheme){
   return scheme === 'B+' ? PERIOD_COMPOSE_MUTEX_PAIRS_BPLUS : PERIOD_COMPOSE_MUTEX_PAIRS;
@@ -529,16 +663,25 @@ function App(){
   const [composeDayConfirmed, setComposeDayConfirmed] = useState(false);
   const [composeChipValues, setComposeChipValues] = useState(emptySchemeCChipValues);
   const [composeOpenChip, setComposeOpenChip] = useState(null); // 'day' | chipId | null
+  const [composeSeqGroupIndex, setComposeSeqGroupIndex] = useState(0);
+  const [composeSeqCompleted, setComposeSeqCompleted] = useState(false);
+  const [composeDPrompts, setComposeDPrompts] = useState(null);
+  const [schemeDMarqueeKey, setSchemeDMarqueeKey] = useState(0);
   const [dockForceTextKey, setDockForceTextKey] = useState(0);
   const [timeline, setTimeline] = useState(initial.timeline);
 
   React.useEffect(()=>{
     setPeriodComposeActive(false);
     setDraftGuide('');
+    setDraft('');
     setComposeDay('今天');
     setComposeDayConfirmed(false);
     setComposeChipValues(emptySchemeCChipValues());
     setComposeOpenChip(null);
+    setComposeSeqGroupIndex(0);
+    setComposeSeqCompleted(false);
+    setComposeDPrompts(null);
+    setFeedingQuickExpanded(false);
   }, [t.scheme]);
 
   const [toasts, setToasts] = useState([]);
@@ -597,6 +740,9 @@ function App(){
   const [periodFeelRecorded, setPeriodFeelRecorded] = useState(false);
   const [periodFeelModalOpen, setPeriodFeelModalOpen] = useState(false);
   const [dockExpanded, setDockExpanded] = useState(false);
+  const [feedingQuickExpanded, setFeedingQuickExpanded] = useState(false);
+  const feedingExpandScrollRef = useRef(null);
+  const feedingExpandPrevRef = useRef(false);
   const [showSearchPage, setShowSearchPage] = useState(false);
   const [babyFeedingPanelMode, setBabyFeedingPanelMode] = useState(null);
   const [searchCriteria, setSearchCriteria] = useState(null);
@@ -1713,12 +1859,29 @@ function App(){
   const handlePeriodDockQuickSelect = (item)=>{
     if(!item) return;
     const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
+    if(item.action === 'period-compose-d'){
+      setPeriodComposeActive(true);
+      setComposeDay('今天');
+      setComposeDayConfirmed(false);
+      setComposeChipValues(emptySchemeCChipValues());
+      setComposeOpenChip(null);
+      setComposeSeqCompleted(false);
+      setDraft('');
+      setDraftGuide('');
+      setComposeDPrompts(SCHEME_D_COMPOSE_PROMPTS);
+      setSchemeDMarqueeKey((k)=>k + 1);
+      setDockForceTextKey(k=>k + 1);
+      return;
+    }
     if(item.action === 'period-start'){
       setPeriodComposeActive(true);
       setComposeDay('今天');
       setComposeDayConfirmed(false);
       setComposeChipValues(emptySchemeCChipValues());
       setComposeOpenChip(null);
+      setComposeSeqGroupIndex(scheme === 'B++' ? schemeBppInitialGroupIndex() : 0);
+      setComposeSeqCompleted(false);
+      setComposeDPrompts(null);
       setDraft(buildPeriodComposeSeedDraft(scheme, 'start'));
       setDraftGuide(resolvePeriodComposeGuide(scheme, 'start'));
       setDockForceTextKey(k=>k + 1);
@@ -1730,6 +1893,9 @@ function App(){
       setComposeDayConfirmed(false);
       setComposeChipValues(emptySchemeCChipValues());
       setComposeOpenChip(null);
+      setComposeSeqGroupIndex(scheme === 'B++' ? schemeBppInitialGroupIndex() : 0);
+      setComposeSeqCompleted(false);
+      setComposeDPrompts(null);
       setDraft(buildPeriodComposeSeedDraft(scheme, 'end'));
       setDraftGuide(resolvePeriodComposeGuide(scheme, 'end'));
       setDockForceTextKey(k=>k + 1);
@@ -1743,11 +1909,27 @@ function App(){
     setTimeout(()=>scrollTimelineToBottom('smooth'), 80);
   };
 
+  const handleSchemeDPromptSelect = (prompt)=>{
+    if(!prompt) return;
+    setComposeDPrompts(null);
+    if(prompt.kind === 'plain'){
+      setDraft('今天月经来了 ');
+      setDraftGuide('');
+      setDockForceTextKey(k=>k + 1);
+      return;
+    }
+    const kind = prompt.kind === 'end' ? 'end' : 'start';
+    setDraft(buildPeriodComposeSeedDraft('D', kind));
+    setDraftGuide('');
+    setDockForceTextKey(k=>k + 1);
+  };
+
   const handleDraftChange = (value)=>{
     setDraft(value);
     if(!draftGuide) return;
     const solid = value.replace(/[\u2009\u2006\u00A0 ]+$/, '');
-    if(solid !== '今天月经来了' && solid !== '今天月经走了'){
+    if(solid !== '今天月经来了' && solid !== '今天月经走了'
+      && solid !== '月经来了' && solid !== '月经走了'){
       setDraftGuide('');
     }
   };
@@ -1783,6 +1965,39 @@ function App(){
       clearTimeout(t2);
     };
   }, [periodComposeActive]);
+
+  // 快捷平铺向上展开：时间轴同步上推，保证「今天」可见；收起回落
+  React.useEffect(()=>{
+    const was = feedingExpandPrevRef.current;
+    feedingExpandPrevRef.current = feedingQuickExpanded;
+    if(was === feedingQuickExpanded) return;
+    const el = streamRef.current;
+    if(!el) return;
+    if(feedingQuickExpanded){
+      feedingExpandScrollRef.current = el.scrollTop;
+      const pushToday = ()=>{
+        const today = el.querySelector('.tl-day-section-head.is-today')
+          || el.querySelector('.tl-day-summary.is-today');
+        if(today){
+          const streamTop = el.getBoundingClientRect().top;
+          const todayOffset = today.getBoundingClientRect().top - streamTop + el.scrollTop;
+          el.scrollTo({ top: Math.max(0, todayOffset - 8), behavior: 'smooth' });
+          return;
+        }
+        el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight), behavior: 'smooth' });
+      };
+      const t1 = setTimeout(pushToday, 80);
+      const t2 = setTimeout(pushToday, 320);
+      return ()=>{ clearTimeout(t1); clearTimeout(t2); };
+    }
+    const saved = feedingExpandScrollRef.current;
+    feedingExpandScrollRef.current = null;
+    if(typeof saved === 'number'){
+      el.scrollTo({ top: Math.max(0, saved), behavior: 'smooth' });
+    }else{
+      scrollTimelineToLastItem('smooth');
+    }
+  }, [feedingQuickExpanded]);
 
   React.useEffect(()=>{
     setTimeline(blocks=>refreshBabyFeedingLatestMarks(blocks));
@@ -2868,14 +3083,18 @@ function App(){
       }))
     : null;
   const periodDockQuickItems = showPeriodQuickStrip
-    ? PERIOD_DOCK_QUICK_ITEMS.map(item=>({
+    ? (((t.scheme || 'A') === 'D' ? PERIOD_DOCK_QUICK_ITEMS_D : PERIOD_DOCK_QUICK_ITEMS).map(item=>({
         ...item,
         iconNode:item.id === 'custom'
           ? <CustomQuickIcon />
           : (window.UnifiedQuickIcon
-            ? <UnifiedQuickIcon type={item.id === 'beverage' ? 'water' : item.id}/>
+            ? <UnifiedQuickIcon type={
+                item.id === 'beverage' ? 'water'
+                  : item.id === 'period-record' ? 'period-start'
+                  : item.id
+              }/>
             : (item.iconSrc ? <img src={item.iconSrc} alt="" /> : (item.icon || null))),
-      }))
+      })))
     : null;
   const dockQuickItems = babyFeedingDockItems || periodDockQuickItems;
   const DockFakeKeyboard = window.DockFakeKeyboard;
@@ -2902,6 +3121,8 @@ function App(){
     setDraftGuide('');
     setComposeOpenChip(null);
     setComposeDayConfirmed(false);
+    setComposeSeqGroupIndex(0);
+    setComposeDPrompts(null);
     setDraft((prev)=>String(prev || '').replace(/[\u2009\u2006\u00A0 ]+$/, ''));
   };
 
@@ -2913,26 +3134,31 @@ function App(){
 
   const rebuildSchemeCDraft = (day, values, kind, extra='')=>{
     const eventLabel = kind === 'end' ? '月经走了' : '月经来了';
-    const bits = [day + eventLabel];
-    if(extra) bits.push(extra);
-    bits.push(...schemeCChipValuesList(values));
-    const hasTail = extra || schemeCChipValuesList(values).length;
-    return bits.join(' ') + (hasTail ? '' : ' ');
+    const tails = [...schemeCChipValuesList(values)];
+    if(extra) tails.push(String(extra).trim());
+    const head = `${day}${eventLabel}`;
+    if(!tails.length) return head + ' ';
+    return head + '，' + tails.join('，');
   };
 
   const extractSchemeCExtra = (text, day, kind)=>{
     const eventLabel = kind === 'end' ? '月经走了' : '月经来了';
-    const prefix = day + eventLabel;
     let rest = String(text || '');
-    if(rest.startsWith(prefix)) rest = rest.slice(prefix.length);
-    rest = rest.replace(/^[\u2009\u2006\u00A0 ]+/, '');
+    const prefixes = [day + ' ' + eventLabel, day + eventLabel];
+    for(const prefix of prefixes){
+      if(rest.startsWith(prefix)){
+        rest = rest.slice(prefix.length);
+        break;
+      }
+    }
+    rest = rest.replace(/^[，,\u2009\u2006\u00A0\s]+/, '');
     schemeCPrefixedOptionLabels(kind).forEach((label)=>{
       rest = removeComposeTagFromDraft(rest, label);
     });
     PERIOD_COMPOSE_SUPPLEMENTS_END.forEach((label)=>{
       rest = removeComposeTagFromDraft(rest, label);
     });
-    return rest.replace(/[\u2009\u2006\u00A0 ]+$/, '').trim();
+    return rest.replace(/[，,\u2009\u2006\u00A0\s]+$/g, '').trim();
   };
 
   const parseSchemeCChipValues = (text, kind)=>{
@@ -3015,6 +3241,64 @@ function App(){
     : null;
   const schemeCComposeActive = currentScheme === 'C' && periodComposeActive;
   const schemeCEventKind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
+  const schemeBppComposeActive = currentScheme === 'B++' && periodComposeActive;
+  const schemeBppKind = schemeCEventKind;
+  const schemeBppGroupsList = schemeBppComposeActive ? schemeBppGroups(schemeBppKind) : [];
+  const schemeBppShowTags = schemeBppComposeActive && !composeSeqCompleted;
+  const schemeBppGroupSafeIndex = schemeBppShowTags
+    ? Math.max(0, Math.min(composeSeqGroupIndex, Math.max(0, schemeBppGroupsList.length - 1)))
+    : 0;
+  const schemeBppActiveGroup = schemeBppShowTags
+    ? (schemeBppGroupsList[schemeBppGroupSafeIndex] || null)
+    : null;
+  const schemeBppTokens = schemeBppComposeActive
+    ? parseSchemeBppDraftTokens(draft, schemeBppKind)
+    : null;
+
+  const advanceComposeSeqGroup = (delta = 1)=>{
+    if(composeSeqCompleted) return;
+    setComposeSeqGroupIndex((prev)=>{
+      const groups = schemeBppGroups(schemeBppKind);
+      if(!groups.length) return 0;
+      return Math.max(0, Math.min(groups.length - 1, prev + delta));
+    });
+  };
+
+  const handleComposeSeqPick = (tag)=>{
+    if(!schemeBppActiveGroup || !tag || composeSeqCompleted) return;
+    const group = schemeBppActiveGroup;
+    const groups = schemeBppGroups(schemeBppKind);
+    const atLast = schemeBppGroupSafeIndex >= groups.length - 1;
+    setDraft((prev)=>applySchemeBppTagToDraft(prev, group, tag, schemeBppKind));
+    setDraftGuide('');
+    if(atLast){
+      setComposeSeqCompleted(true);
+    }else{
+      setComposeSeqGroupIndex((prev)=>Math.min(groups.length - 1, prev + 1));
+    }
+    setDockForceTextKey(k=>k + 1);
+  };
+
+  const handleComposeSeqSkip = ()=>{
+    if(composeSeqCompleted) return;
+    const groups = schemeBppGroups(schemeBppKind);
+    if(schemeBppGroupSafeIndex >= groups.length - 1){
+      setComposeSeqCompleted(true);
+      return;
+    }
+    advanceComposeSeqGroup(1);
+  };
+
+  const handleComposeSeqSwipe = (dir)=>{
+    if(!dir || composeSeqCompleted) return;
+    advanceComposeSeqGroup(dir > 0 ? 1 : -1);
+  };
+
+  const handleComposeSeqTokenFocus = (groupId)=>{
+    // 选完后不再点开标签行
+    if(!groupId || composeSeqCompleted) return;
+  };
+
   const schemeCChips = schemeCEventKind === 'end' ? SCHEME_C_CHIPS_END : SCHEME_C_CHIPS_START;
   const schemeCExtra = schemeCComposeActive
     ? extractSchemeCExtra(draft, composeDay, schemeCEventKind)
@@ -3056,10 +3340,18 @@ function App(){
       }
       return;
     }
-    if(solid === '今天月经来了' || solid === '今天月经来了，流量是'){
+    if(currentScheme === 'B++'){
+      const isSeed = solid === '月经来了' || solid === '月经走了';
+      if(isSeed){
+        setComposeSeqCompleted(false);
+        setComposeSeqGroupIndex(schemeBppInitialGroupIndex());
+      }
+      // 已选完则保持收起，不再弹出标签行
+    }
+    if(solid === '今天月经来了' || solid === '今天月经来了，流量是' || solid === '月经来了'){
       setDraft(buildPeriodComposeSeedDraft(currentScheme, 'start'));
       setDraftGuide(resolvePeriodComposeGuide(currentScheme, 'start'));
-    }else if(solid === '今天月经走了' || solid === '今天月经走了，症状是'){
+    }else if(solid === '今天月经走了' || solid === '今天月经走了，症状是' || solid === '月经走了'){
       setDraft(buildPeriodComposeSeedDraft(currentScheme, 'end'));
       setDraftGuide(resolvePeriodComposeGuide(currentScheme, 'end'));
     }else{
@@ -3081,8 +3373,10 @@ function App(){
         className={'phone'
           + (homeDetailOpen ? ' is-home-detail-open' : '')
           + (showDockQuickStrip ? ' is-dock-quick-entry' : '')
+          + (feedingQuickExpanded ? ' is-feeding-quick-expanded' : '')
           + (periodComposeActive ? ' is-fake-kb-open' : '')
-          + (schemeBComposeExtras ? ' is-scheme-b-compose' : '')
+          + (schemeBComposeExtras || schemeBppShowTags ? ' is-scheme-b-compose' : '')
+          + (schemeBppComposeActive ? ' is-scheme-bpp-compose' : '')
           + (schemeCComposeActive ? ' is-scheme-c-compose' : '')}
         onPointerDown={handlePhonePointerDown}
       >
@@ -3254,6 +3548,7 @@ function App(){
           onVoiceDone={submitVoice}
           onPhoto={()=>setShowPhoto(true)}
           onDockExpandedChange={setDockExpanded}
+          onFeedingExpandedChange={setFeedingQuickExpanded}
           activeTab={activeTab}
           defaultInputMode={(showScheme1Hints || emptyPreviewMode) ? 'voice' : 'text'}
           showScheme3Bubble={showScheme3Bubble}
@@ -3321,6 +3616,7 @@ function App(){
             'suiji-stream'
             + (recordLifeMode === '育儿' && !isSearchActive && babyDiscoverVisible && !babyFeedingEntryActive ? ' has-baby-discover' : '')
             + (showDockQuickStrip ? ' has-dock-quick-strip' : '')
+            + (feedingQuickExpanded ? ' is-feeding-quick-expanded' : '')
           }
           ref={streamRef}
         >
@@ -3371,13 +3667,27 @@ function App(){
           onVoiceDone={recordLifeMode === '育儿' ? submitBabyFeedingVoice : submitVoice}
           onPhoto={()=>setShowPhoto(true)}
           onDockExpandedChange={setDockExpanded}
+          onFeedingExpandedChange={setFeedingQuickExpanded}
           activeTab={activeTab}
           defaultInputMode="text"
           forceTextModeKey={dockForceTextKey}
           onInputFocus={reopenPeriodComposeFromInput}
+          composePrompts={composeDPrompts}
+          onComposePromptSelect={handleSchemeDPromptSelect}
+          inputMarqueeKey={schemeDMarqueeKey}
           composeSupplements={schemeBComposeExtras}
           onComposeSupplement={handleComposeSupplement}
-          composeVariant={schemeCComposeActive ? 'C' : null}
+          composeSeqGroup={schemeBppActiveGroup}
+          composeSeqGroupIndex={schemeBppGroupSafeIndex}
+          composeSeqGroupCount={schemeBppGroupsList.length}
+          composeSeqKind={schemeBppKind}
+          composeSeqInteractive={schemeBppShowTags}
+          onComposeSeqPick={handleComposeSeqPick}
+          onComposeSeqSkip={handleComposeSeqSkip}
+          onComposeSeqSwipe={handleComposeSeqSwipe}
+          composeSeqTokens={schemeBppTokens}
+          onComposeSeqTokenFocus={handleComposeSeqTokenFocus}
+          composeVariant={schemeCComposeActive ? 'C' : (schemeBppComposeActive ? 'B++' : null)}
           composeDay={composeDay}
           composeDayConfirmed={composeDayConfirmed}
           composeDayDate={parseSchemeCDayLabel(composeDay)}
@@ -3486,7 +3796,9 @@ function App(){
                     {value:'A+', label:'方案 A+'},
                     {value:'B', label:'方案 B'},
                     {value:'B+', label:'方案 B+'},
+                    {value:'B++', label:'方案 B++'},
                     {value:'C', label:'方案 C'},
+                    {value:'D', label:'方案 D'},
                   ]}
                   onChange={(v)=>setTweak('scheme', v)}
                 />
@@ -3519,10 +3831,24 @@ function App(){
                   </div>
                 </TweakSection>
               ) : null}
+              {(t.scheme || 'A') === 'B++' ? (
+                <TweakSection label="方案 B++">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    接续式：点进只有「月经来了」；首组昨天来了／前天来了→经量→疼痛→颜色；左右滑换组；点句子回组
+                  </div>
+                </TweakSection>
+              ) : null}
               {(t.scheme || 'A') === 'C' ? (
                 <TweakSection label="方案 C">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                     「今天」可点选；先出流量入口，点击左上浮出选项
+                  </div>
+                </TweakSection>
+              ) : null}
+              {(t.scheme || 'A') === 'D' ? (
+                <TweakSection label="方案 D">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    单入口「记经期」→彩色走马灯；上方短引导点选后填入 A+ 句式
                   </div>
                 </TweakSection>
               ) : null}

@@ -497,12 +497,25 @@ function WaterQuickSheet({onClose, onSave}){
 function DockPublisher({
   draft, draftGuide = '', onDraft, onSend, onQuickMark, onMoodConfirm, onSymptomConfirm, onWeightConfirm,
   onFoodConfirm, onDietCapture, onCameraRecord,
-  onVoiceDone, onPhoto, onDockExpandedChange, onCameraActiveChange, activeTab, showScheme3Bubble,
+  onVoiceDone, onPhoto, onDockExpandedChange, onCameraActiveChange, onFeedingExpandedChange, activeTab, showScheme3Bubble,
   highlightScheme3Input, dockPlaceholder, defaultInputMode = 'voice',
   forceTextModeKey = 0,
   onInputFocus,
+  composePrompts = null,
+  onComposePromptSelect,
+  inputMarqueeKey = 0,
   composeSupplements = null,
   onComposeSupplement,
+  composeSeqGroup = null,
+  composeSeqGroupIndex = 0,
+  composeSeqGroupCount = 0,
+  composeSeqKind = 'start',
+  composeSeqInteractive = true,
+  onComposeSeqPick,
+  onComposeSeqSkip,
+  onComposeSeqSwipe,
+  composeSeqTokens = null,
+  onComposeSeqTokenFocus,
   composeVariant = null,
   composeDay = '今天',
   composeDayConfirmed = false,
@@ -544,6 +557,7 @@ function DockPublisher({
   const [recording, setRecording] = React.useState(false);
   const [recSec, setRecSec] = React.useState(0);
   const [inputFocused, setInputFocused] = React.useState(false);
+  const [marqueeOn, setMarqueeOn] = React.useState(false);
   const [cameraOpen, setCameraOpen] = React.useState(false);
   const [cameraSourceRect, setCameraSourceRect] = React.useState(null);
   const [cameraPreferredMode, setCameraPreferredMode] = React.useState(null);
@@ -555,6 +569,7 @@ function DockPublisher({
   const containerRef = React.useRef(null);
   const feedingDragStartY = React.useRef(null);
   const feedingSwipeRef = React.useRef({x:0, y:0, active:false, locked:null});
+  const composeSeqSwipeRef = React.useRef({x:0, y:0, active:false});
   const textAreaRef = React.useRef(null);
   const dockWrapRef = React.useRef(null);
 
@@ -576,7 +591,6 @@ function DockPublisher({
       const el = textAreaRef.current;
       if(!el) return;
       el.focus({ preventScroll: true });
-      // 再次 focus，确保收起快捷栏后仍能拉起软键盘
       requestAnimationFrame(()=>{
         el.focus();
         el.style.height = 'auto';
@@ -587,6 +601,30 @@ function DockPublisher({
     }, 40);
     return ()=>clearTimeout(t);
   }, [forceTextModeKey]);
+
+  // B++：句内高亮与 textarea 宽度不一致时，强制光标停在句末，避免「看起来插在中间」
+  React.useEffect(()=>{
+    if(composeVariant !== 'B++') return;
+    const el = textAreaRef.current;
+    if(!el || document.activeElement !== el) return;
+    const len = String(draft || '').length;
+    try{ el.setSelectionRange(len, len); }catch(_){}
+  }, [draft, composeVariant, composeSeqGroupIndex, composeSeqTokens]);
+
+  const pinBppCaretToEnd = ()=>{
+    if(composeVariant !== 'B++') return;
+    const el = textAreaRef.current;
+    if(!el) return;
+    const len = String(el.value || '').length;
+    try{ el.setSelectionRange(len, len); }catch(_){}
+  };
+
+  React.useEffect(()=>{
+    if(!inputMarqueeKey) return;
+    setMarqueeOn(true);
+    const t = setTimeout(()=>setMarqueeOn(false), 1400);
+    return ()=>clearTimeout(t);
+  }, [inputMarqueeKey]);
 
   React.useEffect(()=>{
     if(activeTab === 'note' && prevTabRef.current !== 'note'){
@@ -810,6 +848,14 @@ function DockPublisher({
     if(!feedingExpanded) setFeedingPage(0);
   }, [feedingExpanded]);
 
+  React.useEffect(()=>{
+    if(!showFeedingQuick && feedingExpanded) setFeedingExpanded(false);
+  }, [showFeedingQuick, feedingExpanded]);
+
+  React.useEffect(()=>{
+    onFeedingExpandedChange?.(!!feedingExpanded);
+  }, [feedingExpanded, onFeedingExpandedChange]);
+
   React.useLayoutEffect(()=>{
     if(!periodFeelGuide || !showFeedingQuick){
       setPeriodFeelGuidePos(null);
@@ -878,6 +924,67 @@ function DockPublisher({
     if(locked !== 'x') return;
     if(dx <= -42) setFeedingPage(p=>Math.min(feedingPageCount - 1, p + 1));
     if(dx >= 42) setFeedingPage(p=>Math.max(0, p - 1));
+  };
+
+  const onComposeSeqSwipeStart = (event)=>{
+    if(!composeSeqGroup) return;
+    const touch = event.touches?.[0] || event;
+    composeSeqSwipeRef.current = {x: touch.clientX, y: touch.clientY, active:true};
+  };
+
+  const onComposeSeqSwipeEnd = (event)=>{
+    const state = composeSeqSwipeRef.current;
+    if(!state.active) return;
+    const touch = event.changedTouches?.[0] || event;
+    const dx = touch.clientX - state.x;
+    const dy = touch.clientY - state.y;
+    composeSeqSwipeRef.current = {x:0, y:0, active:false};
+    if(Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy)) return;
+    // 左滑下一组，右滑上一组
+    onComposeSeqSwipe?.(dx < 0 ? 1 : -1);
+  };
+
+  const draftHasSeqTag = (tag)=>{
+    if(!tag || !composeSeqGroup) return false;
+    if(composeSeqGroup.id === 'day'){
+      const suffix = composeSeqKind === 'end' ? '走了' : '来了';
+      const label = tag === `昨天${suffix}` ? '昨天'
+        : tag === `前天${suffix}` ? '前天'
+        : '';
+      const cur = String(draft || '').match(/^(今天|昨天|前天|\d{1,2}月\d{1,2}日)/)?.[1] || '';
+      return !!(label && cur && cur === label);
+    }
+    return String(draft || '').split(/[，,\s]+/).filter(Boolean).includes(tag);
+  };
+
+  const renderComposeSeqTokens = ()=>{
+    if(!composeSeqTokens?.length) return null;
+    const nodes = [];
+    composeSeqTokens.forEach((tok, i)=>{
+      if(tok.kind === 'tag' && i > 0){
+        nodes.push(<span key={'sep-'+i} className="dock-bpp-token-sep">，</span>);
+      }
+      if(tok.groupId && composeSeqInteractive){
+        nodes.push(
+          <button
+            key={'tok-'+i+'-'+tok.text}
+            type="button"
+            className={'dock-bpp-token'+(
+              composeSeqGroup?.id === tok.groupId && composeSeqGroup?.id !== 'color'
+                ? ' is-active-group'
+                : ''
+            )}
+            onMouseDown={(e)=>e.preventDefault()}
+            onClick={()=>onComposeSeqTokenFocus?.(tok.groupId)}
+          >
+            {tok.text}
+          </button>
+        );
+      }else{
+        nodes.push(<span key={'tok-'+i+'-'+tok.text} className="dock-bpp-token-plain">{tok.text}</span>);
+      }
+    });
+    return nodes;
   };
 
   const handleDockQuickItemSelect = (item, buttonEl)=>{
@@ -1027,8 +1134,47 @@ function DockPublisher({
               }}
             />
           ) : (
-          <div className={'dock-bar is-path-dock'+(showFeedingQuick ? ' has-feeding-quick' : '')+(composeSupplements?.length ? ' has-compose-supplements' : '')}>
-            {composeSupplements?.length ? (
+          <div className={'dock-bar is-path-dock'
+            +(showFeedingQuick ? ' has-feeding-quick' : '')
+            +(composeSupplements?.length || composeSeqGroup || composePrompts?.length ? ' has-compose-supplements' : '')}>
+            {composePrompts?.length ? (
+              <div className="dock-compose-prompts" aria-label="经期引导">
+                {composePrompts.map((prompt)=>(
+                  <button
+                    key={prompt.id || prompt.label}
+                    type="button"
+                    className="dock-compose-prompt-chip"
+                    onMouseDown={(e)=>e.preventDefault()}
+                    onClick={()=>onComposePromptSelect?.(prompt)}
+                  >
+                    <span className="dock-compose-prompt-text">{prompt.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {composeSeqGroup ? (
+              <div
+                className="dock-compose-seq"
+                aria-label={(composeSeqGroup.label || '标签') + '（第' + (composeSeqGroupIndex + 1) + '/' + Math.max(1, composeSeqGroupCount) + '组）'}
+                onTouchStart={onComposeSeqSwipeStart}
+                onTouchEnd={onComposeSeqSwipeEnd}
+                onTouchCancel={onComposeSeqSwipeEnd}
+              >
+                <div className="dock-compose-seq-scroll">
+                  {composeSeqGroup.options.map((tag)=>(
+                    <button
+                      key={tag}
+                      type="button"
+                      className={'dock-compose-sup-tag'+(draftHasSeqTag(tag) ? ' is-on' : '')}
+                      onMouseDown={(e)=>e.preventDefault()}
+                      onClick={()=>onComposeSeqPick?.(tag)}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : composeSupplements?.length ? (
               <div className="dock-compose-supplements" aria-label="补充标签">
                 <div className="dock-compose-supplements-scroll">
                   {composeSupplements.map((tag)=>(
@@ -1123,7 +1269,10 @@ function DockPublisher({
                 ) : null}
               </div>
             ) : null}
-            <div className={'dock-input-row dock-input-pill'+(composeVariant === 'C' ? ' is-scheme-c-pill' : '')}>
+            <div className={'dock-input-row dock-input-pill'
+              +(composeVariant === 'C' ? ' is-scheme-c-pill' : '')
+              +(marqueeOn ? ' is-scheme-d-marquee' : '')}>
+              {marqueeOn ? <span className="dock-scheme-d-marquee-ring" aria-hidden="true"/> : null}
               {composeVariant === 'C' && composeOpenChip && composeOpenChip !== 'day' && composeOpenChipOptions?.length ? (
                 <div className="dock-compose-float" role="listbox" aria-label={(composeOpenChipLabel || '补充') + '选项'}>
                   {composeOpenChipOptions.map((opt)=>{
@@ -1201,72 +1350,91 @@ function DockPublisher({
                       </button>
                     )}
                     <span className="dock-scheme-c-event">{composeEventLabel}</span>
-                    <textarea
-                      ref={textAreaRef}
-                      rows="1"
-                      className="dock-scheme-c-inline-input"
-                      placeholder=""
-                      aria-label="补充记录"
-                      value={composeExtra}
-                      onChange={(e)=>{
-                        onComposeExtraChange?.(e.target.value);
-                        e.target.style.height='auto';
-                        e.target.style.height = Math.min(e.target.scrollHeight, 72)+'px';
-                      }}
-                      onFocus={()=>{
-                        notifyGuideDockInteract();
-                        setInputFocused(true);
-                        if(typeof onInputFocus === 'function') onInputFocus();
-                      }}
-                      onBlur={()=>setInputFocused(false)}
-                      onKeyDown={(e)=>{
-                        const hasChip = composeChipValues && Object.values(composeChipValues).some(Boolean);
-                        if(e.key==='Enter' && !e.shiftKey && (composeExtra.trim() || hasChip || draft.trim())){
-                          e.preventDefault();
-                          onSend();
-                        }
-                      }}
-                    />
-                    {(composeChips || []).map((chip)=>{
-                      const value = composeChipValues?.[chip.id] || '';
-                      const isOpen = composeOpenChip === chip.id;
-                      if(value && !isOpen){
-                        return (
-                          <button
-                            key={chip.id}
-                            type="button"
-                            className="dock-scheme-c-picked-text"
-                            onMouseDown={(e)=>e.preventDefault()}
-                            onClick={()=>onComposeChipMenuToggle?.(chip.id)}
-                          >
-                            {chip.label}{value}
-                          </button>
-                        );
-                      }
+                    {(()=>{
+                      const chips = composeChips || [];
+                      const confirmed = chips.filter((chip)=>{
+                        const value = composeChipValues?.[chip.id] || '';
+                        return value && composeOpenChip !== chip.id;
+                      });
+                      const pending = chips.filter((chip)=>{
+                        const value = composeChipValues?.[chip.id] || '';
+                        return !value || composeOpenChip === chip.id;
+                      });
                       return (
-                        <button
-                          key={chip.id}
-                          type="button"
-                          className={'dock-scheme-c-chip'+(isOpen ? ' is-open' : '')}
-                          onMouseDown={(e)=>e.preventDefault()}
-                          onClick={()=>onComposeChipMenuToggle?.(chip.id)}
-                        >
-                          <span>{value ? (chip.label + value) : chip.label}</span>
-                          <svg className="dock-scheme-c-chip-caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
-                            <path d="M2.5 4.2L6 7.8l3.5-3.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
+                        <>
+                          {confirmed.map((chip)=>(
+                            <React.Fragment key={'ok-'+chip.id}>
+                              <span className="dock-scheme-c-comma" aria-hidden="true">，</span>
+                              <button
+                                type="button"
+                                className="dock-scheme-c-picked-text"
+                                onMouseDown={(e)=>e.preventDefault()}
+                                onClick={()=>onComposeChipMenuToggle?.(chip.id)}
+                              >
+                                {chip.label}{composeChipValues?.[chip.id]}
+                              </button>
+                            </React.Fragment>
+                          ))}
+                          {confirmed.length && pending.length ? (
+                            <span className="dock-scheme-c-comma" aria-hidden="true">，</span>
+                          ) : null}
+                          <textarea
+                            ref={textAreaRef}
+                            rows="1"
+                            className="dock-scheme-c-inline-input"
+                            placeholder=""
+                            aria-label="补充记录"
+                            value={composeExtra}
+                            onChange={(e)=>{
+                              onComposeExtraChange?.(e.target.value);
+                              e.target.style.height='auto';
+                              e.target.style.height = Math.min(e.target.scrollHeight, 72)+'px';
+                            }}
+                            onFocus={()=>{
+                              notifyGuideDockInteract();
+                              setInputFocused(true);
+                              if(typeof onInputFocus === 'function') onInputFocus();
+                            }}
+                            onBlur={()=>setInputFocused(false)}
+                            onKeyDown={(e)=>{
+                              const hasChip = composeChipValues && Object.values(composeChipValues).some(Boolean);
+                              if(e.key==='Enter' && !e.shiftKey && (composeExtra.trim() || hasChip || draft.trim())){
+                                e.preventDefault();
+                                onSend();
+                              }
+                            }}
+                          />
+                          {pending.map((chip)=>{
+                            const value = composeChipValues?.[chip.id] || '';
+                            const isOpen = composeOpenChip === chip.id;
+                            return (
+                              <button
+                                key={'pending-'+chip.id}
+                                type="button"
+                                className={'dock-scheme-c-chip'+(isOpen ? ' is-open' : '')}
+                                onMouseDown={(e)=>e.preventDefault()}
+                                onClick={()=>onComposeChipMenuToggle?.(chip.id)}
+                              >
+                                <span>{value ? (chip.label + value) : chip.label}</span>
+                                <svg className="dock-scheme-c-chip-caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                                  <path d="M2.5 4.2L6 7.8l3.5-3.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </button>
+                            );
+                          })}
+                          {draftGuide && !confirmed.length ? (
+                            <span className="dock-scheme-c-guide" aria-hidden="true">{draftGuide}</span>
+                          ) : null}
+                        </>
                       );
-                    })}
-                    {draftGuide && !(composeChipValues && Object.values(composeChipValues).some(Boolean)) ? (
-                      <span className="dock-scheme-c-guide" aria-hidden="true">{draftGuide}</span>
-                    ) : null}
+                    })()}
                   </div>
                 ) : (
                 <div className={'dock-text-field'
                   +(inputFocused?' is-focused':'')
                   +(highlightScheme3Input?' is-scheme3-highlight':'')
-                  +(draftGuide && draft ? ' has-draft-guide' : '')}>
+                  +(draftGuide && draft ? ' has-draft-guide' : '')
+                  +(composeVariant === 'B++' && composeSeqTokens?.length ? ' has-bpp-tokens' : '')}>
                   {showScheme3Bubble && !draft.trim() && !inputFocused ? (
                     <span className="dock-scheme3-bubble" aria-hidden="true">
                       ✏️ 记下第一刻
@@ -1276,7 +1444,7 @@ function DockPublisher({
                     show={inputMode === 'text' && !draft.trim() && !showScheme3Bubble}
                     focused={inputFocused}
                   />
-                  {draftGuide && draft ? (
+                  {draftGuide && draft && !(composeVariant === 'B++' && composeSeqTokens?.length) ? (
                     <div className="dock-draft-guide-mirror" aria-hidden="true">
                       <span className="dock-draft-guide-solid">{String(draft).replace(/[\u2009\u2006\u00A0 ]+$/,'')}</span>
                       <span className="dock-draft-guide-hint">{draftGuide}</span>
@@ -1297,7 +1465,11 @@ function DockPublisher({
                       notifyGuideDockInteract();
                       setInputFocused(true);
                       if(typeof onInputFocus === 'function') onInputFocus();
+                      requestAnimationFrame(pinBppCaretToEnd);
                     }}
+                    onClick={pinBppCaretToEnd}
+                    onSelect={pinBppCaretToEnd}
+                    onKeyUp={pinBppCaretToEnd}
                     onBlur={()=>setInputFocused(false)}
                     onKeyDown={(e)=>{
                       if(e.key==='Enter' && !e.shiftKey && draft.trim()){
@@ -1306,6 +1478,13 @@ function DockPublisher({
                       }
                     }}
                   />
+                  {composeVariant === 'B++' && composeSeqTokens?.length ? (
+                    <div className="dock-bpp-token-mirror" aria-hidden="true">
+                      {renderComposeSeqTokens()}
+                      {draftGuide ? <span className="dock-draft-guide-hint">{draftGuide}</span> : null}
+                      {inputFocused ? <span className="dock-bpp-caret"/> : null}
+                    </div>
+                  ) : null}
                 </div>
                 )
               ) : (
