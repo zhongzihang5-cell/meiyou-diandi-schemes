@@ -319,6 +319,18 @@ function App(){
   const [t, setTweak] = window.useTweaks({...window.__TWEAK_DEFAULTS});
   const [emptyPreviewMode, setEmptyPreviewMode] = useState(null);
   const [emptyPreviewGuideStep, setEmptyPreviewGuideStep] = useState(0);
+
+  React.useEffect(()=>{
+    window.__LIVE_TWEAKS = t;
+    const root = document.documentElement;
+    if(t.dockLiquid) root.dataset.dockLiquid = t.dockLiquid;
+    else delete root.dataset.dockLiquid;
+    if(t.reviewEntry) root.dataset.reviewEntry = t.reviewEntry;
+    else delete root.dataset.reviewEntry;
+    if(t.periodEndIcon) root.dataset.periodEndIcon = t.periodEndIcon;
+    else delete root.dataset.periodEndIcon;
+  }, [t]);
+
   const scene = window.getDemoScene(t.demoScene);
   const noteScene = React.useMemo(() => {
     if (!emptyPreviewMode) return scene;
@@ -1543,7 +1555,8 @@ function App(){
   const handlePeriodDockQuickSelect = (item)=>{
     if(!item) return;
     if(item.action === 'period-start'){
-      setDraft('今天月经来了，症状是...');
+      const guide = window.__LIVE_TWEAKS?.periodStartGuide || '症状是...';
+      setDraft(`今天月经来了，${guide}`);
       setDockForceTextKey(k=>k + 1);
       return;
     }
@@ -2651,7 +2664,7 @@ function App(){
         iconNode:item.id === 'custom'
           ? <CustomQuickIcon />
           : (window.UnifiedQuickIcon
-            ? <UnifiedQuickIcon type={item.id === 'beverage' ? 'water' : item.id}/>
+            ? <UnifiedQuickIcon key={`${item.id}-${t.periodEndIcon || 'inline'}`} type={item.id === 'beverage' ? 'water' : item.id}/>
             : (item.iconSrc ? <img src={item.iconSrc} alt="" /> : (item.icon || null))),
       }))
     : null;
@@ -3049,6 +3062,52 @@ function App(){
             onChange={(v)=>setTweak('demoScene', v)}
             description={scene.description}
           />
+          {window.TweaksPanel ? (
+            <TweaksPanel title="方案 Tweaks" noDeckControls>
+              <TweakSection label="Liquid Dock">
+                <TweakRadio
+                  label="毛玻璃透明度"
+                  value={t.dockLiquid || 'clear'}
+                  options={[
+                    {value:'clear', label:'透白'},
+                    {value:'soft', label:'柔白'},
+                    {value:'solid', label:'实灰'},
+                  ]}
+                  onChange={(v)=>setTweak('dockLiquid', v)}
+                />
+              </TweakSection>
+              <TweakSection label="经期反馈">
+                <TweakRadio
+                  label="趋势入口时机"
+                  value={t.reviewEntry || 'afterStream'}
+                  options={[
+                    {value:'afterStream', label:'播完再出'},
+                    {value:'immediate', label:'立刻出现'},
+                  ]}
+                  onChange={(v)=>setTweak('reviewEntry', v)}
+                />
+                <TweakRadio
+                  label="月经走了图标"
+                  value={t.periodEndIcon || 'inline'}
+                  options={[
+                    {value:'inline', label:'水滴内勾'},
+                    {value:'badge', label:'角标勾'},
+                  ]}
+                  onChange={(v)=>setTweak('periodEndIcon', v)}
+                />
+                <TweakRadio
+                  label="来了引导文案"
+                  value={t.periodStartGuide || '症状是...'}
+                  options={[
+                    {value:'症状是...', label:'症状是...'},
+                    {value:'今天症状感觉..', label:'症状感觉'},
+                    {value:'身体感觉..', label:'身体感觉'},
+                  ]}
+                  onChange={(v)=>setTweak('periodStartGuide', v)}
+                />
+              </TweakSection>
+            </TweaksPanel>
+          ) : null}
         </div>
       )}
     </>

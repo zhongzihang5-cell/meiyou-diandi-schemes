@@ -53,15 +53,37 @@
 .dock-panel.is-path-dock.is-feeding-dock{
   width:calc(100% - 22px);
   margin:0 auto;
-  background:rgba(255,255,255,0.42);
-  border:0.5px solid rgba(255,255,255,0.78);
+  background:var(--dock-liquid-bg, rgba(255,255,255,0.42));
+  border:0.5px solid var(--dock-liquid-border, rgba(255,255,255,0.78));
   border-radius:32px;
   box-shadow:
     0 10px 28px rgba(26,22,35,0.08),
     0 1px 0 rgba(255,255,255,0.85) inset;
-  backdrop-filter:blur(28px) saturate(1.35);
-  -webkit-backdrop-filter:blur(28px) saturate(1.35);
+  backdrop-filter:blur(var(--dock-liquid-blur, 28px)) saturate(var(--dock-liquid-sat, 1.35));
+  -webkit-backdrop-filter:blur(var(--dock-liquid-blur, 28px)) saturate(var(--dock-liquid-sat, 1.35));
   overflow:hidden;
+}
+/* Tweaks · liquid 方案 */
+html[data-dock-liquid="clear"]{
+  --dock-liquid-bg:rgba(255,255,255,0.42);
+  --dock-liquid-border:rgba(255,255,255,0.78);
+  --dock-liquid-blur:28px;
+  --dock-liquid-sat:1.35;
+  --dock-liquid-expanded-bg:rgba(255,255,255,0.52);
+}
+html[data-dock-liquid="soft"]{
+  --dock-liquid-bg:rgba(255,255,255,0.58);
+  --dock-liquid-border:rgba(255,255,255,0.82);
+  --dock-liquid-blur:24px;
+  --dock-liquid-sat:1.25;
+  --dock-liquid-expanded-bg:rgba(255,255,255,0.68);
+}
+html[data-dock-liquid="solid"]{
+  --dock-liquid-bg:rgba(236,238,243,0.88);
+  --dock-liquid-border:rgba(255,255,255,0.72);
+  --dock-liquid-blur:18px;
+  --dock-liquid-sat:1.1;
+  --dock-liquid-expanded-bg:rgba(242,243,247,0.94);
 }
 /* 经期感受引导气泡挂在 dock-wrap 外层，可超出 liquid 面板 */
 .dock-wrap.is-feeding-dock.has-period-feel-guide{
@@ -78,7 +100,7 @@
 .dock-panel.is-feeding-expanded,
 .dock-panel.is-path-dock.is-feeding-expanded{
   border-radius:32px;
-  background:rgba(255,255,255,0.52);
+  background:var(--dock-liquid-expanded-bg, rgba(255,255,255,0.52));
   box-shadow:
     0 14px 36px rgba(26,22,35,0.09),
     0 1px 0 rgba(255,255,255,0.88) inset;

@@ -1126,10 +1126,10 @@ function SisterAnalysisCollapsible({playAnimation, onCycleComplete, animateText,
             />
           </div>
         )}
-        {periodStyle && analysisKind === 'period-start' && canCollapse ? (
+        {periodStyle && analysisKind === 'period-start' && (canCollapse || window.__LIVE_TWEAKS?.reviewEntry === 'immediate') ? (
           <button
             type="button"
-            className="tl-period-review-entry is-reveal"
+            className={'tl-period-review-entry'+(canCollapse || window.__LIVE_TWEAKS?.reviewEntry === 'immediate' ? ' is-reveal' : '')}
             onClick={()=>window.dispatchEvent(new CustomEvent('openReviewCycleDetail'))}
             aria-label="查看月经周期变化趋势"
           >
