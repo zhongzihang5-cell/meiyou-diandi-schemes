@@ -179,6 +179,165 @@ const PERIOD_DOCK_QUICK_ITEMS = [
   { id:'pet', label:'宠物', icon:'🐾', text:'宠物' },
 ];
 
+/** 方案 B · 键盘弹起时可选补充标签 */
+const PERIOD_COMPOSE_SUPPLEMENTS_START = ['量有点少', '有点痛经', '鲜红色', '有血块', '乳房胀痛'];
+const PERIOD_COMPOSE_SUPPLEMENTS_END = ['彻底干净了', '还有一点点', '还有点褐色', '完全不痛了'];
+/** 方案 B+ · 量 / 痛经成对互斥，同组替换 */
+const PERIOD_COMPOSE_SUPPLEMENTS_START_BPLUS = ['量有点少', '量比较多', '完全不痛', '有点痛经', '鲜红色', '有血块', '乳房胀痛'];
+const PERIOD_COMPOSE_SUPPLEMENTS_END_BPLUS = PERIOD_COMPOSE_SUPPLEMENTS_END;
+const PERIOD_COMPOSE_MUTEX_PAIRS = [];
+const PERIOD_COMPOSE_MUTEX_PAIRS_BPLUS = [
+  ['量有点少', '量比较多'],
+  ['完全不痛', '有点痛经'],
+];
+const PERIOD_COMPOSE_GUIDE_B = '记点感受…';
+const PERIOD_COMPOSE_GUIDE_C = '记点感受…';
+const SCHEME_C_DAY_OPTIONS = ['今天', '昨天'];
+const SCHEME_C_FLOW_OPTIONS = [
+  { label:'非常少量', hint:'' },
+  { label:'少量', hint:'' },
+  { label:'中量', hint:'' },
+  { label:'大量', hint:'' },
+  { label:'非常大量', hint:'' },
+];
+const SCHEME_C_COLOR_OPTIONS = [
+  { label:'浅红色', hint:'' },
+  { label:'鲜红色', hint:'' },
+  { label:'深红色', hint:'' },
+  { label:'褐色', hint:'' },
+  { label:'黑色', hint:'' },
+];
+const SCHEME_C_PAIN_OPTIONS = [
+  { label:'完全不痛', hint:'' },
+  { label:'轻微痛', hint:'' },
+  { label:'比较痛', hint:'' },
+  { label:'非常痛', hint:'' },
+  { label:'痛到极致', hint:'' },
+];
+const SCHEME_C_CHIPS_START = [
+  { id:'flow', label:'流量', options: SCHEME_C_FLOW_OPTIONS },
+  { id:'color', label:'颜色', options: SCHEME_C_COLOR_OPTIONS },
+  { id:'pain', label:'痛经', options: SCHEME_C_PAIN_OPTIONS },
+];
+const SCHEME_C_CHIPS_END = [];
+const SCHEME_C_ALL_OPTION_LABELS = [
+  ...SCHEME_C_FLOW_OPTIONS,
+  ...SCHEME_C_COLOR_OPTIONS,
+  ...SCHEME_C_PAIN_OPTIONS,
+].map((o)=>o.label).concat(PERIOD_COMPOSE_SUPPLEMENTS_END);
+
+function schemeCChipDisplay(chipId, value){
+  if(!value) return '';
+  const chip = SCHEME_C_CHIPS_START.find((c)=>c.id === chipId)
+    || SCHEME_C_CHIPS_END.find((c)=>c.id === chipId);
+  return chip ? (chip.label + value) : String(value);
+}
+
+function schemeCPrefixedOptionLabels(kind){
+  const chips = kind === 'end' ? SCHEME_C_CHIPS_END : SCHEME_C_CHIPS_START;
+  const list = [];
+  chips.forEach((chip)=>{
+    chip.options.forEach((opt)=>{
+      list.push(chip.label + opt.label);
+      list.push(opt.label);
+    });
+  });
+  return list.sort((a, b)=>String(b).length - String(a).length);
+}
+
+function emptySchemeCChipValues(){
+  return { flow:'', color:'', pain:'' };
+}
+
+function startOfLocalDay(date){
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatSchemeCDayLabel(date){
+  const today = startOfLocalDay(new Date());
+  const d = startOfLocalDay(date);
+  const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
+  if(diff === 0) return '今天';
+  if(diff === 1) return '昨天';
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+function parseSchemeCDayLabel(label){
+  const today = startOfLocalDay(new Date());
+  if(!label || label === '今天') return today;
+  if(label === '昨天'){
+    const y = new Date(today);
+    y.setDate(y.getDate() - 1);
+    return y;
+  }
+  const m = String(label).match(/^(\d{1,2})月(\d{1,2})日$/);
+  if(m){
+    const d = new Date(today.getFullYear(), Number(m[1]) - 1, Number(m[2]));
+    return startOfLocalDay(d);
+  }
+  return today;
+}
+
+function resolvePeriodComposeGuide(scheme, kind){
+  if(scheme === 'B' || scheme === 'B+') return PERIOD_COMPOSE_GUIDE_B;
+  if(scheme === 'C') return '';
+  if(scheme === 'A+') return '';
+  return kind === 'end' ? '身体症状是...' : '量多还是少...';
+}
+
+function periodComposeInlineTail(scheme, kind){
+  if(scheme !== 'A+') return '';
+  return kind === 'end' ? '，症状是' : '，流量是';
+}
+
+function buildPeriodComposeSeedDraft(scheme, kind){
+  const base = kind === 'end' ? '今天月经走了' : '今天月经来了';
+  const tail = periodComposeInlineTail(scheme, kind);
+  return tail ? (base + tail) : (base + ' ');
+}
+
+function periodComposeMutexPairs(scheme){
+  return scheme === 'B+' ? PERIOD_COMPOSE_MUTEX_PAIRS_BPLUS : PERIOD_COMPOSE_MUTEX_PAIRS;
+}
+
+function getPeriodComposeMutexPartner(tag, scheme){
+  for(const [a, b] of periodComposeMutexPairs(scheme)){
+    if(tag === a) return b;
+    if(tag === b) return a;
+  }
+  return null;
+}
+
+function draftHasComposeTag(draftText, tag){
+  const s = String(draftText || '');
+  if(!tag) return false;
+  return s.split(/[，,\s]+/).filter(Boolean).includes(tag);
+}
+
+function resolvePeriodComposeSupplements(draftText, scheme){
+  const s = String(draftText || '');
+  const isEnd = /月经走了|走喽/.test(s);
+  const all = scheme === 'B+'
+    ? (isEnd ? PERIOD_COMPOSE_SUPPLEMENTS_END_BPLUS : PERIOD_COMPOSE_SUPPLEMENTS_START_BPLUS)
+    : (isEnd ? PERIOD_COMPOSE_SUPPLEMENTS_END : PERIOD_COMPOSE_SUPPLEMENTS_START);
+  // B+：成对标签都展示，点选时同组替换；B：若有互斥则隐藏已选对侧
+  if(scheme === 'B+') return all;
+  return all.filter((tag)=>{
+    const partner = getPeriodComposeMutexPartner(tag, scheme);
+    if(partner && draftHasComposeTag(s, partner) && !draftHasComposeTag(s, tag)) return false;
+    return true;
+  });
+}
+
+function removeComposeTagFromDraft(draftText, tag){
+  const raw = String(draftText || '');
+  const parts = raw.split(/[，,\s]+/).filter(Boolean).filter((part)=>part !== tag);
+  const joiner = /[，,]/.test(raw) ? '，' : ' ';
+  return parts.join(joiner);
+}
+
 function CustomQuickIcon(){
   return (
     <svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
@@ -322,13 +481,7 @@ function App(){
 
   React.useEffect(()=>{
     window.__LIVE_TWEAKS = t;
-    const root = document.documentElement;
-    if(t.dockLiquid) root.dataset.dockLiquid = t.dockLiquid;
-    else delete root.dataset.dockLiquid;
-    if(t.reviewEntry) root.dataset.reviewEntry = t.reviewEntry;
-    else delete root.dataset.reviewEntry;
-    if(t.periodEndIcon) root.dataset.periodEndIcon = t.periodEndIcon;
-    else delete root.dataset.periodEndIcon;
+    document.documentElement.dataset.scheme = t.scheme || 'A';
   }, [t]);
 
   const scene = window.getDemoScene(t.demoScene);
@@ -370,8 +523,24 @@ function App(){
 
   const initial = window.getSceneInitialState(t.demoScene);
   const [draft, setDraft] = useState(initial.draft);
+  const [draftGuide, setDraftGuide] = useState('');
+  const [periodComposeActive, setPeriodComposeActive] = useState(false);
+  const [composeDay, setComposeDay] = useState('今天');
+  const [composeDayConfirmed, setComposeDayConfirmed] = useState(false);
+  const [composeChipValues, setComposeChipValues] = useState(emptySchemeCChipValues);
+  const [composeOpenChip, setComposeOpenChip] = useState(null); // 'day' | chipId | null
   const [dockForceTextKey, setDockForceTextKey] = useState(0);
   const [timeline, setTimeline] = useState(initial.timeline);
+
+  React.useEffect(()=>{
+    setPeriodComposeActive(false);
+    setDraftGuide('');
+    setComposeDay('今天');
+    setComposeDayConfirmed(false);
+    setComposeChipValues(emptySchemeCChipValues());
+    setComposeOpenChip(null);
+  }, [t.scheme]);
+
   const [toasts, setToasts] = useState([]);
   const [showPhoto, setShowPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState(()=>{
@@ -577,6 +746,8 @@ function App(){
   const resetSceneState = (demoSceneId)=>{
     const next = window.getSceneInitialState(demoSceneId);
     setDraft(next.draft);
+    setDraftGuide('');
+    setPeriodComposeActive(false);
     setTimeline(next.timeline);
     setShowAnalysisNotice(next.showAnalysisNotice);
     setAnalysisNoticeTitle(PERIOD_START_NOTICE_TITLE);
@@ -683,19 +854,6 @@ function App(){
       setTimeout(()=>scrollTimelineToLastItem('smooth'), 120);
     });
   }, []);
-
-  React.useEffect(()=>{
-    if(activeTab !== 'note' || recordLifeMode !== '经期') return;
-    const hasPeriodFeedback = timeline.some(block=>(block.items || block.entries || []).some(item=>item.analysisKind === 'period-start' || item.kind === 'sync-card' && item.periodSummaryLabel === '月经来了'));
-    if(!hasPeriodFeedback || !sisterCycleDone || periodFeelRecorded) return;
-    const timer = setTimeout(()=>{
-      setPeriodFeelVisible(true);
-      setPeriodFeelReady(true);
-      setPeriodFeelGuideVisible(true);
-      requestAnimationFrame(()=>setTimeout(()=>scrollTimelineToLastItem('auto'), 100));
-    }, 500);
-    return ()=>clearTimeout(timer);
-  }, [activeTab, recordLifeMode, timeline, sisterCycleDone, periodFeelRecorded]);
 
   useEffect(()=>{
     if(sisterPlayAnimation > 0){
@@ -1554,14 +1712,26 @@ function App(){
 
   const handlePeriodDockQuickSelect = (item)=>{
     if(!item) return;
+    const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
     if(item.action === 'period-start'){
-      const guide = window.__LIVE_TWEAKS?.periodStartGuide || '症状是...';
-      setDraft(`今天月经来了，${guide}`);
+      setPeriodComposeActive(true);
+      setComposeDay('今天');
+      setComposeDayConfirmed(false);
+      setComposeChipValues(emptySchemeCChipValues());
+      setComposeOpenChip(null);
+      setDraft(buildPeriodComposeSeedDraft(scheme, 'start'));
+      setDraftGuide(resolvePeriodComposeGuide(scheme, 'start'));
       setDockForceTextKey(k=>k + 1);
       return;
     }
     if(item.action === 'period-end'){
-      setDraft('今天月经走了，身体感觉..');
+      setPeriodComposeActive(true);
+      setComposeDay('今天');
+      setComposeDayConfirmed(false);
+      setComposeChipValues(emptySchemeCChipValues());
+      setComposeOpenChip(null);
+      setDraft(buildPeriodComposeSeedDraft(scheme, 'end'));
+      setDraftGuide(resolvePeriodComposeGuide(scheme, 'end'));
       setDockForceTextKey(k=>k + 1);
       return;
     }
@@ -1572,6 +1742,47 @@ function App(){
     });
     setTimeout(()=>scrollTimelineToBottom('smooth'), 80);
   };
+
+  const handleDraftChange = (value)=>{
+    setDraft(value);
+    if(!draftGuide) return;
+    const solid = value.replace(/[\u2009\u2006\u00A0 ]+$/, '');
+    if(solid !== '今天月经来了' && solid !== '今天月经走了'){
+      setDraftGuide('');
+    }
+  };
+
+  React.useEffect(()=>{
+    if(!draft){
+      setDraftGuide('');
+    }
+  }, [draft]);
+
+  React.useEffect(()=>{
+    if(!periodComposeActive) return;
+    let cancelled = false;
+    const pushTodayAboveKeyboard = ()=>{
+      if(cancelled) return;
+      const el = streamRef.current;
+      if(!el) return;
+      const today = el.querySelector('.tl-day-section-head.is-today')
+        || el.querySelector('.tl-day-summary.is-today');
+      if(today){
+        const streamTop = el.getBoundingClientRect().top;
+        const todayOffset = today.getBoundingClientRect().top - streamTop + el.scrollTop;
+        el.scrollTo({ top: Math.max(0, todayOffset - 8), behavior: 'smooth' });
+        return;
+      }
+      el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight), behavior: 'smooth' });
+    };
+    const t1 = setTimeout(pushTodayAboveKeyboard, 60);
+    const t2 = setTimeout(pushTodayAboveKeyboard, 300);
+    return ()=>{
+      cancelled = true;
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [periodComposeActive]);
 
   React.useEffect(()=>{
     setTimeline(blocks=>refreshBabyFeedingLatestMarks(blocks));
@@ -1699,8 +1910,9 @@ function App(){
       const isEnd = isPeriodEndText;
       const periodLabel = isEnd ? '月经走了' : '月经来了';
       const analysisKind = isEnd ? 'period-end' : 'period-start';
-      const icon = isEnd ? 'period-end' : 'period';
       setDraft('');
+      setDraftGuide('');
+      setPeriodComposeActive(false);
       markUserRecorded();
       const syncEntry = {
         kind:'sync-card',
@@ -1711,11 +1923,11 @@ function App(){
         body: text,
         tagLayout:'v3',
         isNew: true,
-        tags:[{ label: periodLabel, cat:'period', val:'', icon }],
+        tags:[{ label: periodLabel, cat: periodLabel, val: periodLabel }],
         periodDetails: [],
         periodSummaryLabel: periodLabel,
         analysisKind,
-        recordSummary: true,
+        recordSummary: false,
       };
       const sisterEntry = {
         kind:'sister-card',
@@ -2640,7 +2852,7 @@ function App(){
     && recordLifeMode === '经期'
     && !isSearchActive
     && !voiceTranscribe;
-  const showDockQuickStrip = showBabyFeedingQuickStrip || showPeriodQuickStrip;
+  const showDockQuickStrip = (showBabyFeedingQuickStrip || showPeriodQuickStrip) && !periodComposeActive;
   const showBabyFeedingHeader = showRecordShell
     && !showRecordEmpty
     && !showRecordBlank
@@ -2656,23 +2868,224 @@ function App(){
       }))
     : null;
   const periodDockQuickItems = showPeriodQuickStrip
-    ? [
-        ...(periodFeelVisible ? [{id:'period-feel', label:'经期感受', action:'period-feel', icon:'💧', pulse:periodFeelReady, drop:false}] : []),
-        ...PERIOD_DOCK_QUICK_ITEMS,
-      ].map(item=>({
+    ? PERIOD_DOCK_QUICK_ITEMS.map(item=>({
         ...item,
         iconNode:item.id === 'custom'
           ? <CustomQuickIcon />
           : (window.UnifiedQuickIcon
-            ? <UnifiedQuickIcon key={`${item.id}-${t.periodEndIcon || 'inline'}`} type={item.id === 'beverage' ? 'water' : item.id}/>
+            ? <UnifiedQuickIcon type={item.id === 'beverage' ? 'water' : item.id}/>
             : (item.iconSrc ? <img src={item.iconSrc} alt="" /> : (item.icon || null))),
       }))
     : null;
   const dockQuickItems = babyFeedingDockItems || periodDockQuickItems;
+  const DockFakeKeyboard = window.DockFakeKeyboard;
+
+  const handleFakeKbInsert = (ch)=>{
+    setDraft((prev)=>{
+      const base = String(prev || '').replace(/[\u2009\u2006\u00A0 ]+$/, '');
+      return base + ch;
+    });
+    setDraftGuide('');
+  };
+
+  const handleFakeKbBackspace = ()=>{
+    setDraft((prev)=>{
+      const base = String(prev || '').replace(/[\u2009\u2006\u00A0 ]+$/, '');
+      return base.slice(0, -1);
+    });
+    setDraftGuide('');
+  };
+
+  const dismissPeriodComposeKeyboard = ()=>{
+    if(!periodComposeActive) return;
+    setPeriodComposeActive(false);
+    setDraftGuide('');
+    setComposeOpenChip(null);
+    setComposeDayConfirmed(false);
+    setDraft((prev)=>String(prev || '').replace(/[\u2009\u2006\u00A0 ]+$/, ''));
+  };
+
+  const schemeCChipValuesList = (values)=>(
+    ['flow', 'color', 'pain']
+      .map((id)=>schemeCChipDisplay(id, values?.[id]))
+      .filter(Boolean)
+  );
+
+  const rebuildSchemeCDraft = (day, values, kind, extra='')=>{
+    const eventLabel = kind === 'end' ? '月经走了' : '月经来了';
+    const bits = [day + eventLabel];
+    if(extra) bits.push(extra);
+    bits.push(...schemeCChipValuesList(values));
+    const hasTail = extra || schemeCChipValuesList(values).length;
+    return bits.join(' ') + (hasTail ? '' : ' ');
+  };
+
+  const extractSchemeCExtra = (text, day, kind)=>{
+    const eventLabel = kind === 'end' ? '月经走了' : '月经来了';
+    const prefix = day + eventLabel;
+    let rest = String(text || '');
+    if(rest.startsWith(prefix)) rest = rest.slice(prefix.length);
+    rest = rest.replace(/^[\u2009\u2006\u00A0 ]+/, '');
+    schemeCPrefixedOptionLabels(kind).forEach((label)=>{
+      rest = removeComposeTagFromDraft(rest, label);
+    });
+    PERIOD_COMPOSE_SUPPLEMENTS_END.forEach((label)=>{
+      rest = removeComposeTagFromDraft(rest, label);
+    });
+    return rest.replace(/[\u2009\u2006\u00A0 ]+$/, '').trim();
+  };
+
+  const parseSchemeCChipValues = (text, kind)=>{
+    const next = emptySchemeCChipValues();
+    const chips = kind === 'end' ? SCHEME_C_CHIPS_END : SCHEME_C_CHIPS_START;
+    chips.forEach((chip)=>{
+      const sorted = [...chip.options].sort((a, b)=>String(b.label).length - String(a.label).length);
+      const prefixed = sorted.find((opt)=>draftHasComposeTag(text, chip.label + opt.label));
+      if(prefixed){
+        next[chip.id] = prefixed.label;
+        return;
+      }
+      const bare = sorted.find((opt)=>draftHasComposeTag(text, opt.label));
+      if(bare) next[chip.id] = bare.label;
+    });
+    return next;
+  };
+
+  const hasAnySchemeCChip = (values)=>schemeCChipValuesList(values).length > 0;
+
+  const handleComposeDayChange = (dayOrDate)=>{
+    const kind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
+    const extra = extractSchemeCExtra(draft, composeDay, kind);
+    const day = typeof dayOrDate === 'string' ? dayOrDate : formatSchemeCDayLabel(dayOrDate);
+    setComposeDay(day);
+    setComposeDayConfirmed(true);
+    setComposeOpenChip(null);
+    setDraft(rebuildSchemeCDraft(day, composeChipValues, kind, extra));
+    if(!extra && !hasAnySchemeCChip(composeChipValues)){
+      setDraftGuide(resolvePeriodComposeGuide(currentScheme, kind));
+    }
+  };
+
+  const handleComposeChipPick = (chipId, label)=>{
+    const kind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
+    const extra = extractSchemeCExtra(draft, composeDay, kind);
+    const nextValues = { ...composeChipValues, [chipId]: label };
+    setComposeChipValues(nextValues);
+    setComposeOpenChip(null);
+    setDraftGuide('');
+    setDraft(rebuildSchemeCDraft(composeDay, nextValues, kind, extra));
+    setDockForceTextKey(k=>k + 1);
+  };
+
+  const handleComposeChipClear = (chipId)=>{
+    const kind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
+    const extra = extractSchemeCExtra(draft, composeDay, kind);
+    const nextValues = { ...composeChipValues, [chipId]: '' };
+    setComposeChipValues(nextValues);
+    setComposeOpenChip(null);
+    setDraft(rebuildSchemeCDraft(composeDay, nextValues, kind, extra));
+    if(!extra && !hasAnySchemeCChip(nextValues)){
+      setDraftGuide(resolvePeriodComposeGuide(currentScheme, kind));
+    }
+    setDockForceTextKey(k=>k + 1);
+  };
+
+  const handleComposeSupplement = (tag)=>{
+    if(!tag) return;
+    const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
+    setDraft((prev)=>{
+      const raw = String(prev || '');
+      if(draftHasComposeTag(raw, tag)){
+        return removeComposeTagFromDraft(raw, tag);
+      }
+      let base = raw.replace(/[，,\u2009\u2006\u00A0\s]+$/, '');
+      const partner = getPeriodComposeMutexPartner(tag, scheme);
+      if(partner && draftHasComposeTag(base, partner)){
+        base = removeComposeTagFromDraft(base, partner);
+      }
+      if(!base) return tag;
+      return base + '，' + tag;
+    });
+    setDraftGuide('');
+  };
+
+  const currentScheme = t.scheme || 'A';
+  const schemeBComposeExtras = (currentScheme === 'B' || currentScheme === 'B+') && periodComposeActive
+    ? resolvePeriodComposeSupplements(draft, currentScheme)
+    : null;
+  const schemeCComposeActive = currentScheme === 'C' && periodComposeActive;
+  const schemeCEventKind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
+  const schemeCChips = schemeCEventKind === 'end' ? SCHEME_C_CHIPS_END : SCHEME_C_CHIPS_START;
+  const schemeCExtra = schemeCComposeActive
+    ? extractSchemeCExtra(draft, composeDay, schemeCEventKind)
+    : '';
+  const schemeCOpenChipMeta = schemeCChips.find((chip)=>chip.id === composeOpenChip) || null;
+
+  const handleComposeExtraChange = (extra)=>{
+    setDraft(rebuildSchemeCDraft(composeDay, composeChipValues, schemeCEventKind, String(extra || '').trim()));
+    if(String(extra || '').trim()) setDraftGuide('');
+    else if(!hasAnySchemeCChip(composeChipValues)){
+      setDraftGuide(resolvePeriodComposeGuide(currentScheme, schemeCEventKind));
+    }
+  };
+
+  const reopenPeriodComposeFromInput = ()=>{
+    if(periodComposeActive) return;
+    if(recordLifeMode !== '经期') return;
+    setPeriodComposeActive(true);
+    const solid = String(draft || '').replace(/[\u2009\u2006\u00A0 ]+$/, '');
+    const kind = /月经走了|走喽/.test(solid) ? 'end' : 'start';
+    if(currentScheme === 'C'){
+      const dayMatch = solid.match(/^(今天|昨天|\d{1,2}月\d{1,2}日)/);
+      const day = dayMatch ? dayMatch[1] : '今天';
+      const values = parseSchemeCChipValues(solid, kind);
+      setComposeDay(day);
+      setComposeDayConfirmed(true);
+      setComposeChipValues(values);
+      setComposeOpenChip(null);
+      if(solid === day + '月经来了'){
+        setDraft(day + '月经来了 ');
+        setDraftGuide(resolvePeriodComposeGuide(currentScheme, 'start'));
+      }else if(solid === day + '月经走了'){
+        setDraft(day + '月经走了 ');
+        setDraftGuide(resolvePeriodComposeGuide(currentScheme, 'end'));
+      }else if(!hasAnySchemeCChip(values)){
+        setDraftGuide(resolvePeriodComposeGuide(currentScheme, kind));
+      }else{
+        setDraftGuide('');
+      }
+      return;
+    }
+    if(solid === '今天月经来了' || solid === '今天月经来了，流量是'){
+      setDraft(buildPeriodComposeSeedDraft(currentScheme, 'start'));
+      setDraftGuide(resolvePeriodComposeGuide(currentScheme, 'start'));
+    }else if(solid === '今天月经走了' || solid === '今天月经走了，症状是'){
+      setDraft(buildPeriodComposeSeedDraft(currentScheme, 'end'));
+      setDraftGuide(resolvePeriodComposeGuide(currentScheme, 'end'));
+    }else{
+      setDraftGuide('');
+    }
+  };
+
+  const handlePhonePointerDown = (e)=>{
+    if(!periodComposeActive) return;
+    const t = e.target;
+    if(!(t instanceof Element)) return;
+    if(t.closest('.dock-wrap, .dock-fake-keyboard, .twk-panel, .demo-controls-stack, .stream-header, .tabbar, .dock-compose-float')) return;
+    dismissPeriodComposeKeyboard();
+  };
 
   return (
     <>
-      <div className={'phone' + (homeDetailOpen ? ' is-home-detail-open' : '') + (showDockQuickStrip ? ' is-dock-quick-entry' : '')}>
+      <div
+        className={'phone'
+          + (homeDetailOpen ? ' is-home-detail-open' : '')
+          + (showDockQuickStrip ? ' is-dock-quick-entry' : '')
+          + (periodComposeActive ? ' is-fake-kb-open' : '')
+          + (schemeBComposeExtras ? ' is-scheme-b-compose' : '')
+          + (schemeCComposeActive ? ' is-scheme-c-compose' : '')}
+        onPointerDown={handlePhonePointerDown}
+      >
         <StatusBar isMember={isMember} onMemberChange={setIsMember} showMemberSwitch={showReview}/>
 
       {showHome && HomePage && (
@@ -2828,7 +3241,8 @@ function App(){
         {!voiceTranscribe && (
         <DockPublisher
           draft={draft}
-          onDraft={setDraft}
+          draftGuide={periodComposeActive ? draftGuide : ''}
+          onDraft={handleDraftChange}
           onSend={()=>submitText()}
           onQuickMark={submitQuickMark}
           onMoodConfirm={submitMoodRecord}
@@ -2944,7 +3358,8 @@ function App(){
         {!voiceTranscribe && (
         <DockPublisher
           draft={draft}
-          onDraft={setDraft}
+          draftGuide={periodComposeActive ? draftGuide : ''}
+          onDraft={handleDraftChange}
           onSend={()=>submitText()}
           onQuickMark={submitQuickMark}
           onMoodConfirm={submitMoodRecord}
@@ -2959,19 +3374,32 @@ function App(){
           activeTab={activeTab}
           defaultInputMode="text"
           forceTextModeKey={dockForceTextKey}
+          onInputFocus={reopenPeriodComposeFromInput}
+          composeSupplements={schemeBComposeExtras}
+          onComposeSupplement={handleComposeSupplement}
+          composeVariant={schemeCComposeActive ? 'C' : null}
+          composeDay={composeDay}
+          composeDayConfirmed={composeDayConfirmed}
+          composeDayDate={parseSchemeCDayLabel(composeDay)}
+          composeDayMenuOpen={composeOpenChip === 'day'}
+          onComposeDayMenuToggle={()=>setComposeOpenChip((v)=>v === 'day' ? null : 'day')}
+          onComposeDayChange={handleComposeDayChange}
+          composeEventLabel={schemeCEventKind === 'end' ? '月经走了' : '月经来了'}
+          composeChips={schemeCChips}
+          composeChipValues={composeChipValues}
+          composeOpenChip={composeOpenChip}
+          composeOpenChipOptions={schemeCOpenChipMeta?.options || null}
+          composeOpenChipLabel={schemeCOpenChipMeta?.label || ''}
+          onComposeChipMenuToggle={(chipId)=>setComposeOpenChip((v)=>v === chipId ? null : chipId)}
+          onComposeChipPick={handleComposeChipPick}
+          onComposeChipClear={handleComposeChipClear}
+          composeExtra={schemeCExtra}
+          onComposeExtraChange={handleComposeExtraChange}
           hideQuickFan={showBabyFeedingQuickStrip}
           hideQuickFab={showPeriodQuickStrip}
-          feedingQuickItems={dockQuickItems}
+          feedingQuickItems={periodComposeActive ? null : dockQuickItems}
           feedingQuickLabel={showPeriodQuickStrip ? '经期快捷记录' : '宝宝喂养快捷记录'}
           onFeedingQuickSelect={showPeriodQuickStrip ? handlePeriodDockQuickSelect : handleBabyFeedingQuickSelect}
-          onPeriodFeelSelect={()=>{
-            setPeriodFeelGuideVisible(false);
-            setPeriodFeelReady(false);
-            setPeriodFeelModalOpen(true);
-          }}
-          periodFeelLabel="经期感受"
-          periodFeelGuide={periodFeelGuideVisible}
-          periodFeelGuideText="血量变化、经期症状，都能帮你快速记下来，立刻试试吧"
           demoPhase={demoPhase}
           isDemoRunning={isDemoRunning}
         />
@@ -3016,28 +3444,6 @@ function App(){
 
       {showPhoto && <PhotoSheet onCancel={()=>setShowPhoto(false)} onPick={submitPhoto}/>}
 
-      <PeriodFeelOverlay
-        open={periodFeelModalOpen && showRecordShell}
-        label="记录经期感受"
-        onClose={()=>setPeriodFeelModalOpen(false)}
-          onComplete={(text)=>{
-          setPeriodFeelRecorded(true);
-          setPeriodFeelReady(false);
-          setPeriodFeelGuideVisible(false);
-          const entry = buildTimelineEntry(text, [], {
-            voice:{duration:'10″'},
-            tagLayout:'v3',
-            tags:[{cat:'流量'},{cat:'心情'},{cat:'症状'}],
-          });
-          setTimeline(blocks=>{
-            const dayId = blocks.find(b=>b.type==='day' && b.isToday)?.id;
-            return window.appendTimelineEntry(blocks, entry, {dayId});
-          });
-          setPeriodFeelModalOpen(false);
-          setTimeout(()=>scrollTimelineToBottom('smooth'), 100);
-        }}
-      />
-
       <Toast toasts={toasts}/>
       {showBottomTabBar && (
         <TabBar
@@ -3053,6 +3459,13 @@ function App(){
       {recordLifeMode === '育儿' && (
         <BabyVoiceOverlay session={babyVoiceSession} success={babyVoiceSuccess}/>
       )}
+      {periodComposeActive && DockFakeKeyboard ? (
+        <DockFakeKeyboard
+          onInsert={handleFakeKbInsert}
+          onBackspace={handleFakeKbBackspace}
+          onReturn={()=>submitText()}
+        />
+      ) : null}
       </div>
 
       {!window.__STANDALONE_LOCKED_SCENE && (
@@ -3064,48 +3477,55 @@ function App(){
           />
           {window.TweaksPanel ? (
             <TweaksPanel title="方案 Tweaks" noDeckControls>
-              <TweakSection label="Liquid Dock">
+              <TweakSection label="方案">
                 <TweakRadio
-                  label="毛玻璃透明度"
-                  value={t.dockLiquid || 'clear'}
+                  label="当前方案"
+                  value={t.scheme || 'A'}
                   options={[
-                    {value:'clear', label:'透白'},
-                    {value:'soft', label:'柔白'},
-                    {value:'solid', label:'实灰'},
+                    {value:'A', label:'方案 A'},
+                    {value:'A+', label:'方案 A+'},
+                    {value:'B', label:'方案 B'},
+                    {value:'B+', label:'方案 B+'},
+                    {value:'C', label:'方案 C'},
                   ]}
-                  onChange={(v)=>setTweak('dockLiquid', v)}
+                  onChange={(v)=>setTweak('scheme', v)}
                 />
               </TweakSection>
-              <TweakSection label="经期反馈">
-                <TweakRadio
-                  label="趋势入口时机"
-                  value={t.reviewEntry || 'afterStream'}
-                  options={[
-                    {value:'afterStream', label:'播完再出'},
-                    {value:'immediate', label:'立刻出现'},
-                  ]}
-                  onChange={(v)=>setTweak('reviewEntry', v)}
-                />
-                <TweakRadio
-                  label="月经走了图标"
-                  value={t.periodEndIcon || 'inline'}
-                  options={[
-                    {value:'inline', label:'水滴内勾'},
-                    {value:'badge', label:'角标勾'},
-                  ]}
-                  onChange={(v)=>setTweak('periodEndIcon', v)}
-                />
-                <TweakRadio
-                  label="来了引导文案"
-                  value={t.periodStartGuide || '症状是...'}
-                  options={[
-                    {value:'症状是...', label:'症状是...'},
-                    {value:'今天症状感觉..', label:'症状感觉'},
-                    {value:'身体感觉..', label:'身体感觉'},
-                  ]}
-                  onChange={(v)=>setTweak('periodStartGuide', v)}
-                />
-              </TweakSection>
+              {(t.scheme || 'A') === 'A' ? (
+                <TweakSection label="方案 A">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    月经来了：量多还是少…／月经走了：身体症状是…
+                  </div>
+                </TweakSection>
+              ) : null}
+              {(t.scheme || 'A') === 'A+' ? (
+                <TweakSection label="方案 A+">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    来了：，流量是／走了：，症状是；光标停在「是」后
+                  </div>
+                </TweakSection>
+              ) : null}
+              {(t.scheme || 'A') === 'B' ? (
+                <TweakSection label="方案 B">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    键盘弹起：胶囊输入 + 灰色补充标签快速填入
+                  </div>
+                </TweakSection>
+              ) : null}
+              {(t.scheme || 'A') === 'B+' ? (
+                <TweakSection label="方案 B+">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    同 B；量有点少/量比较多、完全不痛/有点痛经成对互斥替换
+                  </div>
+                </TweakSection>
+              ) : null}
+              {(t.scheme || 'A') === 'C' ? (
+                <TweakSection label="方案 C">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    「今天」可点选；先出流量入口，点击左上浮出选项
+                  </div>
+                </TweakSection>
+              ) : null}
             </TweaksPanel>
           ) : null}
         </div>

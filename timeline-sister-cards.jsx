@@ -645,9 +645,13 @@ function SegmentedRecordCard({entry, isNew, animateAnalysis, typewriterAiNote, t
   const hasAnalysis = !!analysisProps;
   const hasVoice = !!entry.voice;
   const isVtLive = !!entry.vtLive;
-  const isPeriodSync = entry.kind === 'sync-card' && (entry.tags || []).some((tag) => (
-    resolveTag(tag).cat === 'period' || tag.cat === '月经' || tag.icon === 'period'
-  ));
+  const isPeriodSync = entry.kind === 'sync-card' && (
+    entry.analysisKind === 'period-start'
+    || entry.analysisKind === 'period-end'
+    || (entry.tags || []).some((tag) => (
+      resolveTag(tag).cat === 'period' || tag.cat === '月经' || tag.cat === '月经来了' || tag.cat === '月经走了' || tag.icon === 'period'
+    ))
+  );
   const text = isVtLive ? (entry.liveText || '') : (entry.voiceText || entry.body || '');
   const tagLayout = entry.tagLayout || 't5';
   const aiNoteTypewriter = !!(typewriterAiNote && hasAiNote);
@@ -671,14 +675,14 @@ function SegmentedRecordCard({entry, isNew, animateAnalysis, typewriterAiNote, t
   } : null;
 
   return (
-    <div className={'tl-card tl-t5-card'+(isNew?' fade-in':'')+(hasAnalysis?' has-sister-analysis':'')+(isVtLive?' is-vt-live':'')+(isPeriodSync?' has-period-summary':'')} data-entry-id={entry.id}>
+    <div className={'tl-card tl-t5-card'+(isNew?' fade-in':'')+(hasAnalysis?' has-sister-analysis':'')+(isVtLive?' is-vt-live':'')+(isPeriodSync && !text ?' has-period-summary':'')} data-entry-id={entry.id}>
       <TlRecCardHead time={entry.time}/>
-      {isPeriodSync ? (
+      {isPeriodSync && !text ? (
         <EditableRecordArea entryId={entry.id} entryKind={entryKind} editPayload={editPayload}>
           <PeriodRecordSummary entry={entry}/>
         </EditableRecordArea>
       ) : (
-        <EditableRecordArea entryId={entry.id} entryKind={entryKind} className="tl-t5-main">
+        <EditableRecordArea entryId={entry.id} entryKind={entryKind} editPayload={isPeriodSync ? editPayload : undefined} className="tl-t5-main">
           {isVtLive ? (
             <div className="tl-voice-block tl-vt-live-body">
               {text ? (
@@ -1124,21 +1128,21 @@ function SisterAnalysisCollapsible({playAnimation, onCycleComplete, animateText,
               showPeriodFeelPrompt={showPeriodFeelPrompt}
               periodFeelGuideCopy={periodFeelGuideCopy}
             />
+            {periodStyle && analysisKind === 'period-start' && canCollapse ? (
+              <button
+                type="button"
+                className="tl-period-review-entry is-reveal"
+                onClick={()=>window.dispatchEvent(new CustomEvent('openReviewCycleDetail'))}
+                aria-label="查看月经周期变化趋势"
+              >
+                <span>查看月经周期变化趋势</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6"/>
+                </svg>
+              </button>
+            ) : null}
           </div>
         )}
-        {periodStyle && analysisKind === 'period-start' && (canCollapse || window.__LIVE_TWEAKS?.reviewEntry === 'immediate') ? (
-          <button
-            type="button"
-            className={'tl-period-review-entry'+(canCollapse || window.__LIVE_TWEAKS?.reviewEntry === 'immediate' ? ' is-reveal' : '')}
-            onClick={()=>window.dispatchEvent(new CustomEvent('openReviewCycleDetail'))}
-            aria-label="查看月经周期变化趋势"
-          >
-            <span>查看月经周期变化趋势</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 6l6 6-6 6"/>
-            </svg>
-          </button>
-        ) : null}
       </section>
     </>
   );

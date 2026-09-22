@@ -27,6 +27,15 @@
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
+/* 假键盘弹起：加大底部留白，方便把「今天」顶到可见区 */
+.phone.is-fake-kb-open .suiji-stream{
+  padding-bottom:calc(var(--dock-fake-kb-h, 248px) + 88px + var(--my-safe-bottom, 0px));
+  scroll-padding-bottom:calc(var(--dock-fake-kb-h, 248px) + 88px + var(--my-safe-bottom, 0px));
+}
+.phone.is-scheme-b-compose .suiji-stream{
+  padding-bottom:calc(var(--dock-fake-kb-h, 248px) + 128px + var(--my-safe-bottom, 0px));
+  scroll-padding-bottom:calc(var(--dock-fake-kb-h, 248px) + 128px + var(--my-safe-bottom, 0px));
+}
 .stream-health{margin-bottom:14px}
 
 /* ============ Dock 容器 ============ */
@@ -53,37 +62,15 @@
 .dock-panel.is-path-dock.is-feeding-dock{
   width:calc(100% - 22px);
   margin:0 auto;
-  background:var(--dock-liquid-bg, rgba(255,255,255,0.42));
-  border:0.5px solid var(--dock-liquid-border, rgba(255,255,255,0.78));
+  background:rgba(255,255,255,0.42);
+  border:0.5px solid rgba(255,255,255,0.78);
   border-radius:32px;
   box-shadow:
     0 10px 28px rgba(26,22,35,0.08),
     0 1px 0 rgba(255,255,255,0.85) inset;
-  backdrop-filter:blur(var(--dock-liquid-blur, 28px)) saturate(var(--dock-liquid-sat, 1.35));
-  -webkit-backdrop-filter:blur(var(--dock-liquid-blur, 28px)) saturate(var(--dock-liquid-sat, 1.35));
+  backdrop-filter:blur(28px) saturate(1.35);
+  -webkit-backdrop-filter:blur(28px) saturate(1.35);
   overflow:hidden;
-}
-/* Tweaks · liquid 方案 */
-html[data-dock-liquid="clear"]{
-  --dock-liquid-bg:rgba(255,255,255,0.42);
-  --dock-liquid-border:rgba(255,255,255,0.78);
-  --dock-liquid-blur:28px;
-  --dock-liquid-sat:1.35;
-  --dock-liquid-expanded-bg:rgba(255,255,255,0.52);
-}
-html[data-dock-liquid="soft"]{
-  --dock-liquid-bg:rgba(255,255,255,0.58);
-  --dock-liquid-border:rgba(255,255,255,0.82);
-  --dock-liquid-blur:24px;
-  --dock-liquid-sat:1.25;
-  --dock-liquid-expanded-bg:rgba(255,255,255,0.68);
-}
-html[data-dock-liquid="solid"]{
-  --dock-liquid-bg:rgba(236,238,243,0.88);
-  --dock-liquid-border:rgba(255,255,255,0.72);
-  --dock-liquid-blur:18px;
-  --dock-liquid-sat:1.1;
-  --dock-liquid-expanded-bg:rgba(242,243,247,0.94);
 }
 /* 经期感受引导气泡挂在 dock-wrap 外层，可超出 liquid 面板 */
 .dock-wrap.is-feeding-dock.has-period-feel-guide{
@@ -100,7 +87,7 @@ html[data-dock-liquid="solid"]{
 .dock-panel.is-feeding-expanded,
 .dock-panel.is-path-dock.is-feeding-expanded{
   border-radius:32px;
-  background:var(--dock-liquid-expanded-bg, rgba(255,255,255,0.52));
+  background:rgba(255,255,255,0.52);
   box-shadow:
     0 14px 36px rgba(26,22,35,0.09),
     0 1px 0 rgba(255,255,255,0.88) inset;
@@ -2224,11 +2211,506 @@ html[data-dock-liquid="solid"]{
   }
 }
 .dock-text-field textarea{
-  width:100%;border:none;outline:none;background:transparent;
-  font:inherit;font-size:15px;line-height:1.45;
-  color:var(--my-text-primary);resize:none;
-  padding:8px 0;max-height:72px;
-  position:relative;z-index:1;
+  width:100%;
+  border:none;
+  outline:none;
+  background:transparent;
+  font:inherit;
+  font-size:15px;
+  line-height:1.45;
+  color:var(--my-text-primary);
+  caret-color:#ff4d88;
+  resize:none;
+  padding:8px 0;
+  max-height:72px;
+  position:relative;
+  z-index:1;
+}
+.dock-text-field.has-draft-guide textarea{
+  color:transparent;
+  -webkit-text-fill-color:transparent;
+  caret-color:#ff4d88;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+  letter-spacing:0;
+}
+.dock-draft-guide-mirror{
+  position:absolute;
+  left:12px;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  pointer-events:none;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+  font-size:15px;
+  font-weight:400;
+  line-height:1.45;
+  letter-spacing:0;
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow:hidden;
+  max-height:72px;
+  z-index:0;
+}
+.dock-input-pill .dock-draft-guide-mirror{
+  left:4px;
+  right:4px;
+  top:0;
+  transform:none;
+  padding:8px 4px;
+  box-sizing:border-box;
+}
+.dock-draft-guide-solid{
+  color:rgba(0,0,0,0.8);
+}
+.dock-draft-guide-solid::after{
+  content:'';
+  display:inline-block;
+  width:0.35em;
+}
+.dock-draft-guide-hint{
+  color:rgba(0,0,0,0.18);
+}
+html[data-scheme="A+"] .dock-draft-guide-hint{
+  color:rgba(0,0,0,0.8);
+}
+
+/* 方案 A/B/C · 假键盘 */
+.phone{
+  --dock-fake-kb-h:248px;
+}
+.phone.is-fake-kb-open .tabbar{
+  visibility:hidden;
+  pointer-events:none;
+}
+.phone.is-fake-kb-open .dock-wrap{
+  position:absolute;
+  left:0;
+  right:0;
+  transform:none;
+  width:100%;
+  max-width:none;
+  bottom:var(--dock-fake-kb-h);
+}
+.phone.is-fake-kb-open .dock-wrap.is-feeding-dock{
+  bottom:var(--dock-fake-kb-h);
+}
+.phone.is-fake-kb-open .dock-bar.is-path-dock{
+  padding:4px 12px 2px;
+}
+.phone.is-scheme-b-compose .dock-bar.is-path-dock{
+  gap:10px;
+  padding:8px 12px 6px;
+  background:transparent;
+}
+.phone.is-scheme-b-compose .dock-panel.is-path-dock{
+  background:transparent;
+  border-top:none;
+  box-shadow:none;
+}
+.phone.is-scheme-b-compose .dock-compose-supplements{
+  width:100%;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  padding:0 2px;
+}
+.phone.is-scheme-b-compose .dock-compose-supplements-scroll{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex:1;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.phone.is-scheme-b-compose .dock-compose-supplements-scroll::-webkit-scrollbar{
+  display:none;
+}
+.phone.is-scheme-b-compose .dock-compose-sup-tag{
+  flex-shrink:0;
+  height:28px;
+  padding:0 12px;
+  border-radius:80px;
+  border:0.5px solid rgba(0,0,0,0.12);
+  background:rgba(242,242,245,0.96);
+  color:rgba(0,0,0,0.55);
+  font-size:13px;
+  font-weight:400;
+  line-height:1;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.phone.is-scheme-b-compose .dock-compose-sup-tag.is-on{
+  background:rgba(255,77,136,0.12);
+  border-color:rgba(255,77,136,0.35);
+  color:#ff4d88;
+}
+.phone.is-scheme-b-compose .dock-compose-sup-tag:active{
+  opacity:0.85;
+}
+
+/* 方案 C · 今天可选 + 流量浮层 */
+.phone.is-scheme-c-compose .dock-bar.is-path-dock{
+  gap:8px;
+  padding:8px 12px 6px;
+  background:transparent;
+}
+.phone.is-scheme-c-compose .dock-panel.is-path-dock{
+  background:transparent;
+  border-top:none;
+  box-shadow:none;
+}
+.phone.is-scheme-c-compose .dock-input-pill.is-scheme-c-pill{
+  position:relative;
+  overflow:visible;
+  align-items:flex-start;
+  min-height:52px;
+  padding:8px 8px 8px 8px;
+  border:1px solid rgba(255,77,136,0.35);
+  box-shadow:0 4px 16px rgba(0,0,0,0.06);
+}
+.phone.is-scheme-c-compose .dock-text-field.is-scheme-c-field{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px 6px;
+  min-height:36px;
+  padding:2px 4px;
+  background:transparent;
+  border:none;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-inline-input{
+  flex:0 1 auto;
+  min-width:8px;
+  width:auto;
+  field-sizing:content;
+  min-height:24px;
+  max-height:72px;
+  margin:0;
+  padding:0 2px;
+  border:0;
+  outline:none;
+  resize:none;
+  background:transparent;
+  color:rgba(0,0,0,0.8);
+  caret-color:#ff4d88;
+  font-size:15px;
+  font-weight:400;
+  line-height:24px;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+}
+.phone.is-scheme-c-compose .dock-text-field.is-scheme-c-field textarea{
+  /* legacy override from pill styles — keep caret tight after event */
+  flex:0 1 auto;
+  min-width:8px;
+  min-height:24px;
+  color:rgba(0,0,0,0.8);
+  caret-color:#ff4d88;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-chip{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  height:24px;
+  padding:0 6px 0 8px;
+  border-radius:80px;
+  border:0;
+  background:rgba(0,0,0,0.06);
+  color:rgba(0,0,0,0.45);
+  font-size:13px;
+  font-weight:400;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+  line-height:22px;
+  cursor:pointer;
+  box-shadow:none;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-chip-caret{
+  display:block;
+  opacity:0.7;
+  flex-shrink:0;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-chip.is-open .dock-scheme-c-chip-caret{
+  transform:rotate(180deg);
+}
+.phone.is-scheme-c-compose .dock-scheme-c-chip.is-open,
+.phone.is-scheme-c-compose .dock-scheme-c-chip:active{
+  background:#fff;
+  color:rgba(0,0,0,0.8);
+  box-shadow:0 0 0 1.5px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.06);
+}
+.phone.is-scheme-c-compose .dock-scheme-c-picked-text{
+  appearance:none;
+  border:0;
+  margin:0;
+  padding:0;
+  background:transparent;
+  font-size:15px;
+  font-weight:400;
+  color:rgba(0,0,0,0.8);
+  line-height:24px;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+  cursor:pointer;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-picked-text.is-day{
+  font-weight:500;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-event{
+  font-size:15px;
+  font-weight:500;
+  color:rgba(0,0,0,0.8);
+  line-height:24px;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+}
+.phone.is-scheme-c-compose .dock-scheme-c-guide{
+  font-size:14px;
+  color:rgba(0,0,0,0.28);
+  line-height:24px;
+  pointer-events:none;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+}
+.phone.is-scheme-c-compose .dock-compose-float{
+  position:absolute;
+  left:12px;
+  bottom:calc(100% + 8px);
+  z-index:140;
+  min-width:200px;
+  max-width:min(300px, calc(100vw - 48px));
+  padding:6px;
+  border-radius:14px;
+  background:rgba(245,245,247,0.96);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  backdrop-filter:blur(16px) saturate(140%);
+  box-shadow:0 8px 28px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.06);
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  animation:dockComposeFloatIn 0.18s ease both;
+}
+.phone.is-scheme-c-compose .dock-compose-float.is-day{
+  left:52px;
+  min-width:120px;
+}
+.phone.is-scheme-c-compose .dock-compose-float.is-day.is-cal{
+  left:12px;
+  min-width:268px;
+  max-width:min(320px, calc(100vw - 32px));
+  padding:10px;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-hd{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-title{
+  font-size:14px;
+  font-weight:500;
+  color:rgba(0,0,0,0.8);
+  font-family:"PingFang SC",-apple-system,sans-serif;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-nav{
+  appearance:none;
+  border:0;
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  background:rgba(255,255,255,0.8);
+  color:rgba(0,0,0,0.55);
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-weeks{
+  display:grid;
+  grid-template-columns:repeat(7, 1fr);
+  gap:2px;
+  margin-bottom:4px;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-weeks span{
+  text-align:center;
+  font-size:11px;
+  color:rgba(0,0,0,0.35);
+  line-height:20px;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-grid{
+  display:grid;
+  grid-template-columns:repeat(7, 1fr);
+  gap:2px;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-cell{
+  appearance:none;
+  border:0;
+  height:32px;
+  border-radius:8px;
+  background:transparent;
+  color:rgba(0,0,0,0.78);
+  font-size:13px;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+  cursor:pointer;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-cell.is-empty{
+  pointer-events:none;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-cell.is-today{
+  color:#ff4d88;
+  font-weight:500;
+}
+.phone.is-scheme-c-compose .dock-compose-cal-cell.is-selected{
+  background:#ff4d88;
+  color:#fff;
+  font-weight:500;
+}
+@keyframes dockComposeFloatIn{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.phone.is-scheme-c-compose .dock-compose-float-item{
+  appearance:none;
+  border:0;
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 10px;
+  border-radius:10px;
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+}
+.phone.is-scheme-c-compose .dock-compose-float-item:active,
+.phone.is-scheme-c-compose .dock-compose-float-item.is-on{
+  background:rgba(255,255,255,0.88);
+}
+.phone.is-scheme-c-compose .dock-compose-float-ico{
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  background:rgba(255,77,136,0.12);
+  color:#ff4d88;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+.phone.is-scheme-c-compose .dock-compose-float-main{
+  flex:0 1 auto;
+  font-size:14px;
+  font-weight:500;
+  color:rgba(0,0,0,0.82);
+  line-height:1.3;
+}
+.phone.is-scheme-c-compose .dock-compose-float-hint{
+  margin-left:auto;
+  font-size:12px;
+  color:rgba(0,0,0,0.4);
+  line-height:1.3;
+  white-space:nowrap;
+}
+.phone.is-scheme-c-compose .suiji-stream{
+  padding-bottom:calc(var(--dock-fake-kb-h, 248px) + 128px + var(--my-safe-bottom, 0px));
+  scroll-padding-bottom:calc(var(--dock-fake-kb-h, 248px) + 128px + var(--my-safe-bottom, 0px));
+}
+.dock-fake-keyboard{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:130;
+  padding:2px 3px calc(6px + var(--my-safe-bottom, 0px));
+  background:#d1d5db;
+  border-top:0.5px solid rgba(0,0,0,0.08);
+  animation:dockFakeKbUp 0.28s cubic-bezier(0.2,0,0,1) both;
+  font-family:"PingFang SC",-apple-system,sans-serif;
+}
+@keyframes dockFakeKbUp{
+  from{transform:translateY(100%);opacity:.6}
+  to{transform:translateY(0);opacity:1}
+}
+.dock-fake-kb-candidates{
+  display:flex;
+  gap:0;
+  overflow-x:auto;
+  padding:0 2px 4px;
+  margin-bottom:4px;
+  border-bottom:0.5px solid rgba(0,0,0,0.08);
+  scrollbar-width:none;
+}
+.dock-fake-kb-candidates::-webkit-scrollbar{display:none}
+.dock-fake-kb-candidate{
+  flex-shrink:0;
+  border:none;
+  background:transparent;
+  padding:6px 12px;
+  font-size:15px;
+  line-height:1.47;
+  font-weight:400;
+  color:rgba(0,0,0,0.8);
+  cursor:pointer;
+}
+.dock-fake-kb-rows{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.dock-fake-kb-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  padding:0 2px;
+}
+.dock-fake-kb-row.is-bottom{
+  gap:6px;
+  padding:0 4px;
+}
+.dock-fake-kb-key{
+  min-width:31px;
+  height:42px;
+  padding:0 8px;
+  border:none;
+  border-radius:6px;
+  background:#fff;
+  box-shadow:0 1px 0 rgba(0,0,0,0.28);
+  font-size:22px;
+  line-height:1;
+  color:#000;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.dock-fake-kb-key:active{
+  background:#b8bcc4;
+}
+.dock-fake-kb-key.is-wide{
+  min-width:42px;
+  font-size:16px;
+}
+.dock-fake-kb-key.is-muted{
+  background:#adb3bc;
+  color:rgba(0,0,0,0.75);
+}
+.dock-fake-kb-key.is-fn{
+  min-width:46px;
+  font-size:14px;
+  font-weight:500;
+  background:#adb3bc;
+}
+.dock-fake-kb-key.is-space{
+  flex:1;
+  min-width:0;
+  font-size:15px;
+  font-weight:400;
+}
+.dock-fake-kb-key.is-return{
+  min-width:72px;
+  background:#adb3bc;
+  font-size:14px;
+  font-weight:500;
 }
 .dock-text-field textarea::placeholder{color:var(--my-text-tertiary)}
 

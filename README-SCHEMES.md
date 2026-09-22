@@ -1,22 +1,23 @@
 # 点滴 · 多方案 Tweaks
 
-从 `meiyou-diandi-jingqi` main（`213dc14`）拉出的独立仓库，用于对比不同交互/视觉方案。
+从 `meiyou-diandi-jingqi` main 拉出的独立仓库。
 
-## 打开
+## Tweaks
 
-本地起静态服务后打开根目录 `index.html`。右下角 **方案 Tweaks** 面板可切换：
+右下角 **方案 Tweaks**：方案 A / A+ / B / B+ / C。
 
-| 分组 | 项 | 说明 |
-|------|----|------|
-| Liquid Dock | 毛玻璃透明度 | 透白 / 柔白 / 实灰 |
-| 经期反馈 | 趋势入口时机 | 播完再出 / 立刻出现 |
-| 经期反馈 | 月经走了图标 | 水滴内勾 / 角标勾 |
-| 经期反馈 | 来了引导文案 | 输入框预填后缀 |
+- **共享基线**：经期快捷「月经来了 / 走了」灰字引导、假键盘、收起平铺项、点空白收起、点输入框再弹起、发送后正文+标签（无经期感受水滴气泡）等。
+- **差异位**：`html[data-scheme="A|A+|B|B+|C"]`；面板里按当前方案显示专属 Tweaks 区。
+  - **A**：来了 → `量多还是少…`；走了 → `身体症状是…`
+  - **A+**：来了 → `，流量是`；走了 → `，症状是`；光标停在「是」后
+  - **B**：胶囊输入 + 补充标签（逗号连接）
+  - **B+**：同 B；`量有点少/量比较多`、`完全不痛/有点痛经` 成对互斥、同组替换
+  - **C**：今天可点选 + 流量／颜色／痛经浮层
 
-## 加新方案
+```js
+// index.html
+TWEAK_DEFAULTS = { demoScene, scheme: "B+" }
 
-1. 在 `index.html` 的 `TWEAK_DEFAULTS` 增加字段  
-2. 在 `app.jsx` 的 `<TweaksPanel>` 加控件  
-3. 用 `window.__LIVE_TWEAKS` 或 `document.documentElement.dataset.*` 接到样式/逻辑  
-
-定稿后把选中方案回写到主仓库 `meiyou-diandi-jingqi`。
+// 页面根节点
+<html data-scheme="A|A+|B|B+|C">
+```

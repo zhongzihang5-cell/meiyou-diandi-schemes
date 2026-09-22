@@ -21,9 +21,7 @@ function UnifiedQuickIcon({type}){
   const body = {
     menses:<><path d="M32 11.5c8.8 9.9 15 17.6 15 24.8A15 15 0 0 1 17 36.3c0-7.2 6.2-14.9 15-24.8z" fill={'url(#b-'+id+')'}/><g stroke="#fff" strokeLinecap="round" fill="none" opacity=".72"><path d="M25.4 33.6v6.4" strokeWidth="3.1"/><path d="M32 29.6v14.6" strokeWidth="3.4"/><path d="M38.6 32.4v8.8" strokeWidth="3.1"/></g><ellipse cx="25.8" cy="25.4" rx="3.4" ry="5.2" fill={'url(#h-'+id+')'} transform="rotate(-28 25.8 25.4)"/></>,
     'period-start':<><path d="M32 12c9.2 10.4 15.6 18.4 15.6 26.2A15.6 15.6 0 1 1 16.4 38.2C16.4 30.4 22.8 22.4 32 12z" fill={'url(#b-'+id+')'}/><ellipse cx="26.2" cy="34.5" rx="5.2" ry="3.4" fill="#fff" opacity=".55"/><path d="M29.5 28.5c1.8 4.2 4.8 6.4 7.8 6.8" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity=".7"/></>,
-    'period-end': (window.__LIVE_TWEAKS?.periodEndIcon === 'badge')
-      ? <><path d="M32 14c7.6 8.6 12.8 15.2 12.8 21.6a12.8 12.8 0 1 1-25.6 0C19.2 29.2 24.4 22.6 32 14z" fill={'url(#b-'+id+')'} opacity=".88"/><circle cx="42" cy="44" r="10.5" fill="#fff"/><circle cx="42" cy="44" r="9" fill={'url(#b-'+id+')'}/><path d="M37.6 44.2l2.8 2.8 6-6.2" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/></>
-      : <><path d="M32 11c8.6 9.7 14.8 17.2 14.8 25.2A14.8 14.8 0 1 1 17.2 36.2C17.2 28.2 23.4 20.7 32 11z" fill={'url(#b-'+id+')'}/><ellipse cx="25.6" cy="26.2" rx="3.6" ry="5.4" fill="#fff" opacity=".55" transform="rotate(-28 25.6 26.2)"/><path d="M24.2 36.6l5.2 5.2 11.2-11.6" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/></>,
+    'period-end':<><path d="M32 11c8.6 9.7 14.8 17.2 14.8 25.2A14.8 14.8 0 1 1 17.2 36.2C17.2 28.2 23.4 20.7 32 11z" fill={'url(#b-'+id+')'}/><ellipse cx="25.6" cy="26.2" rx="3.6" ry="5.4" fill="#fff" opacity=".55" transform="rotate(-28 25.6 26.2)"/><path d="M24.2 36.6l5.2 5.2 11.2-11.6" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/></>,
     weight:<><rect x="10" y="24" width="44" height="27" rx="10" fill={'url(#b-'+id+')'}/><path d="M21 42a11 11 0 0 1 22 0z" fill="#fff" opacity=".85"/><path d="M32 42l6.2-7.2" stroke="#7b3fd6" strokeWidth="2.6" strokeLinecap="round"/><circle cx="32" cy="42" r="1.9" fill="#7b3fd6"/></>,
     symptom:<><path d="M26 16h12a5 5 0 0 1 5 5v3H21v-3a5 5 0 0 1 5-5z" fill={'url(#b-'+id+')'} opacity=".85"/><rect x="11" y="22" width="42" height="30" rx="10" fill={'url(#b-'+id+')'}/><g fill="#fff" opacity=".92"><rect x="28.6" y="29" width="6.8" height="16" rx="3.4"/><rect x="24" y="33.6" width="16" height="6.8" rx="3.4"/></g></>,
     mood:<><circle cx="32" cy="33" r="20" fill={'url(#b-'+id+')'}/><g fill="#c98600"><ellipse cx="25" cy="29.5" rx="2.7" ry="3.4"/><ellipse cx="39" cy="29.5" rx="2.7" ry="3.4"/></g><path d="M24.5 38.5c2 3.4 4.6 5.1 7.5 5.1s5.5-1.7 7.5-5.1" stroke="#c98600" strokeWidth="3.2" strokeLinecap="round" fill="none"/></>,
@@ -49,6 +47,100 @@ function DockSendIco({size=16}){
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="currentColor">
       <path d="M4.1 11.15c-.62-.25-.6-.9.04-1.1L19.55 3.7c.62-.2 1.12.36.88.95L14.7 20.55c-.22.54-.9.58-1.18.06L10.7 14.4 4.1 11.15z"/>
     </svg>
+  );
+}
+
+/** 方案 C · 日期浮层小月历 */
+function DockComposeMiniCalendar({ selectedDate, onSelect }){
+  const selected = selectedDate instanceof Date ? selectedDate : new Date();
+  const [view, setView] = React.useState(()=>{
+    const d = new Date(selected);
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+  React.useEffect(()=>{
+    const d = selectedDate instanceof Date ? selectedDate : new Date();
+    setView({ y: d.getFullYear(), m: d.getMonth() });
+  }, [selectedDate]);
+
+  const first = new Date(view.y, view.m, 1);
+  const startWeekday = first.getDay(); // 0 Sun
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const cells = [];
+  for(let i = 0; i < startWeekday; i++) cells.push(null);
+  for(let n = 1; n <= daysInMonth; n++) cells.push(n);
+
+  const isSameDay = (n)=>{
+    if(!n) return false;
+    return selected.getFullYear() === view.y
+      && selected.getMonth() === view.m
+      && selected.getDate() === n;
+  };
+  const isToday = (n)=>{
+    if(!n) return false;
+    return today.getFullYear() === view.y
+      && today.getMonth() === view.m
+      && today.getDate() === n;
+  };
+
+  return (
+    <div className="dock-compose-cal">
+      <div className="dock-compose-cal-hd">
+        <button
+          type="button"
+          className="dock-compose-cal-nav"
+          aria-label="上个月"
+          onMouseDown={(e)=>e.preventDefault()}
+          onClick={()=>{
+            setView((v)=>{
+              const m = v.m - 1;
+              return m < 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m };
+            });
+          }}
+        >
+          ‹
+        </button>
+        <span className="dock-compose-cal-title">{view.y}年{view.m + 1}月</span>
+        <button
+          type="button"
+          className="dock-compose-cal-nav"
+          aria-label="下个月"
+          onMouseDown={(e)=>e.preventDefault()}
+          onClick={()=>{
+            setView((v)=>{
+              const m = v.m + 1;
+              return m > 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m };
+            });
+          }}
+        >
+          ›
+        </button>
+      </div>
+      <div className="dock-compose-cal-weeks" aria-hidden="true">
+        {['日','一','二','三','四','五','六'].map((w)=>(
+          <span key={w}>{w}</span>
+        ))}
+      </div>
+      <div className="dock-compose-cal-grid">
+        {cells.map((n, idx)=>{
+          if(!n) return <span key={'e'+idx} className="dock-compose-cal-cell is-empty"/>;
+          return (
+            <button
+              key={n}
+              type="button"
+              className={'dock-compose-cal-cell'
+                +(isSameDay(n) ? ' is-selected' : '')
+                +(isToday(n) ? ' is-today' : '')}
+              onMouseDown={(e)=>e.preventDefault()}
+              onClick={()=>onSelect?.(new Date(view.y, view.m, n))}
+            >
+              {n}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -403,11 +495,32 @@ function WaterQuickSheet({onClose, onSave}){
 }
 
 function DockPublisher({
-  draft, onDraft, onSend, onQuickMark, onMoodConfirm, onSymptomConfirm, onWeightConfirm,
+  draft, draftGuide = '', onDraft, onSend, onQuickMark, onMoodConfirm, onSymptomConfirm, onWeightConfirm,
   onFoodConfirm, onDietCapture, onCameraRecord,
   onVoiceDone, onPhoto, onDockExpandedChange, onCameraActiveChange, activeTab, showScheme3Bubble,
   highlightScheme3Input, dockPlaceholder, defaultInputMode = 'voice',
   forceTextModeKey = 0,
+  onInputFocus,
+  composeSupplements = null,
+  onComposeSupplement,
+  composeVariant = null,
+  composeDay = '今天',
+  composeDayConfirmed = false,
+  composeDayDate = null,
+  composeDayMenuOpen = false,
+  onComposeDayMenuToggle,
+  onComposeDayChange,
+  composeEventLabel = '月经来了',
+  composeChips = null,
+  composeChipValues = null,
+  composeOpenChip = null,
+  composeOpenChipOptions = null,
+  composeOpenChipLabel = '',
+  onComposeChipMenuToggle,
+  onComposeChipPick,
+  onComposeChipClear,
+  composeExtra = '',
+  onComposeExtraChange,
   demoPhase, isDemoRunning, hideQuickFan = false, hideQuickFab = false,
   feedingQuickItems = null, feedingQuickLabel = '快捷记录', onFeedingQuickSelect,
   onPeriodFeelSelect, onVoiceStart,
@@ -462,11 +575,15 @@ function DockPublisher({
     const t = setTimeout(()=>{
       const el = textAreaRef.current;
       if(!el) return;
-      el.focus();
-      el.style.height = 'auto';
-      el.style.height = Math.min(el.scrollHeight, 72) + 'px';
-      const len = el.value.length;
-      try{ el.setSelectionRange(len, len); }catch(_){}
+      el.focus({ preventScroll: true });
+      // 再次 focus，确保收起快捷栏后仍能拉起软键盘
+      requestAnimationFrame(()=>{
+        el.focus();
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 72) + 'px';
+        const len = el.value.length;
+        try{ el.setSelectionRange(len, len); }catch(_){}
+      });
     }, 40);
     return ()=>clearTimeout(t);
   }, [forceTextModeKey]);
@@ -910,7 +1027,24 @@ function DockPublisher({
               }}
             />
           ) : (
-          <div className={'dock-bar is-path-dock'+(showFeedingQuick ? ' has-feeding-quick' : '')}>
+          <div className={'dock-bar is-path-dock'+(showFeedingQuick ? ' has-feeding-quick' : '')+(composeSupplements?.length ? ' has-compose-supplements' : '')}>
+            {composeSupplements?.length ? (
+              <div className="dock-compose-supplements" aria-label="补充标签">
+                <div className="dock-compose-supplements-scroll">
+                  {composeSupplements.map((tag)=>(
+                    <button
+                      key={tag}
+                      type="button"
+                      className={'dock-compose-sup-tag'+(String(draft || '').indexOf(tag) >= 0 ? ' is-on' : '')}
+                      onMouseDown={(e)=>e.preventDefault()}
+                      onClick={()=>onComposeSupplement?.(tag)}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {showFeedingQuick ? (
               <div className="dock-feeding-quick" aria-label={feedingQuickLabel}>
                 <button
@@ -989,7 +1123,42 @@ function DockPublisher({
                 ) : null}
               </div>
             ) : null}
-            <div className="dock-input-row dock-input-pill">
+            <div className={'dock-input-row dock-input-pill'+(composeVariant === 'C' ? ' is-scheme-c-pill' : '')}>
+              {composeVariant === 'C' && composeOpenChip && composeOpenChip !== 'day' && composeOpenChipOptions?.length ? (
+                <div className="dock-compose-float" role="listbox" aria-label={(composeOpenChipLabel || '补充') + '选项'}>
+                  {composeOpenChipOptions.map((opt)=>{
+                    const label = typeof opt === 'string' ? opt : opt.label;
+                    const hint = typeof opt === 'string' ? '' : (opt.hint || '');
+                    const selected = composeChipValues?.[composeOpenChip] === label;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        role="option"
+                        className={'dock-compose-float-item'+(selected ? ' is-on' : '')}
+                        onMouseDown={(e)=>e.preventDefault()}
+                        onClick={()=>onComposeChipPick?.(composeOpenChip, label)}
+                      >
+                        <span className="dock-compose-float-ico" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M12 3c3.8 4.2 6 7.2 6 10a6 6 0 1 1-12 0c0-2.8 2.2-5.8 6-10z" fill="currentColor"/>
+                          </svg>
+                        </span>
+                        <span className="dock-compose-float-main">{label}</span>
+                        {hint ? <span className="dock-compose-float-hint">{hint}</span> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {composeVariant === 'C' && composeDayMenuOpen ? (
+                <div className="dock-compose-float is-day is-cal" role="dialog" aria-label="选择日期">
+                  <DockComposeMiniCalendar
+                    selectedDate={composeDayDate}
+                    onSelect={(date)=>onComposeDayChange?.(date)}
+                  />
+                </div>
+              ) : null}
               <button
                 type="button"
                 className="dock-mode-btn"
@@ -1005,9 +1174,99 @@ function DockPublisher({
               </button>
 
               {inputMode==='text' ? (
+                composeVariant === 'C' ? (
+                  <div className={'dock-text-field is-scheme-c-field'
+                    +(inputFocused?' is-focused':'')
+                    +(draftGuide && !(composeChipValues && Object.values(composeChipValues).some(Boolean)) ? ' has-draft-guide' : '')}>
+                    {(composeDayConfirmed && !composeDayMenuOpen) ? (
+                      <button
+                        type="button"
+                        className="dock-scheme-c-picked-text is-day"
+                        onMouseDown={(e)=>e.preventDefault()}
+                        onClick={()=>onComposeDayMenuToggle?.()}
+                      >
+                        {composeDay}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={'dock-scheme-c-chip'+(composeDayMenuOpen ? ' is-open' : '')}
+                        onMouseDown={(e)=>e.preventDefault()}
+                        onClick={()=>onComposeDayMenuToggle?.()}
+                      >
+                        <span>{composeDay}</span>
+                        <svg className="dock-scheme-c-chip-caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                          <path d="M2.5 4.2L6 7.8l3.5-3.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    )}
+                    <span className="dock-scheme-c-event">{composeEventLabel}</span>
+                    <textarea
+                      ref={textAreaRef}
+                      rows="1"
+                      className="dock-scheme-c-inline-input"
+                      placeholder=""
+                      aria-label="补充记录"
+                      value={composeExtra}
+                      onChange={(e)=>{
+                        onComposeExtraChange?.(e.target.value);
+                        e.target.style.height='auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 72)+'px';
+                      }}
+                      onFocus={()=>{
+                        notifyGuideDockInteract();
+                        setInputFocused(true);
+                        if(typeof onInputFocus === 'function') onInputFocus();
+                      }}
+                      onBlur={()=>setInputFocused(false)}
+                      onKeyDown={(e)=>{
+                        const hasChip = composeChipValues && Object.values(composeChipValues).some(Boolean);
+                        if(e.key==='Enter' && !e.shiftKey && (composeExtra.trim() || hasChip || draft.trim())){
+                          e.preventDefault();
+                          onSend();
+                        }
+                      }}
+                    />
+                    {(composeChips || []).map((chip)=>{
+                      const value = composeChipValues?.[chip.id] || '';
+                      const isOpen = composeOpenChip === chip.id;
+                      if(value && !isOpen){
+                        return (
+                          <button
+                            key={chip.id}
+                            type="button"
+                            className="dock-scheme-c-picked-text"
+                            onMouseDown={(e)=>e.preventDefault()}
+                            onClick={()=>onComposeChipMenuToggle?.(chip.id)}
+                          >
+                            {chip.label}{value}
+                          </button>
+                        );
+                      }
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          className={'dock-scheme-c-chip'+(isOpen ? ' is-open' : '')}
+                          onMouseDown={(e)=>e.preventDefault()}
+                          onClick={()=>onComposeChipMenuToggle?.(chip.id)}
+                        >
+                          <span>{value ? (chip.label + value) : chip.label}</span>
+                          <svg className="dock-scheme-c-chip-caret" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                            <path d="M2.5 4.2L6 7.8l3.5-3.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      );
+                    })}
+                    {draftGuide && !(composeChipValues && Object.values(composeChipValues).some(Boolean)) ? (
+                      <span className="dock-scheme-c-guide" aria-hidden="true">{draftGuide}</span>
+                    ) : null}
+                  </div>
+                ) : (
                 <div className={'dock-text-field'
                   +(inputFocused?' is-focused':'')
-                  +(highlightScheme3Input?' is-scheme3-highlight':'')}>
+                  +(highlightScheme3Input?' is-scheme3-highlight':'')
+                  +(draftGuide && draft ? ' has-draft-guide' : '')}>
                   {showScheme3Bubble && !draft.trim() && !inputFocused ? (
                     <span className="dock-scheme3-bubble" aria-hidden="true">
                       ✏️ 记下第一刻
@@ -1017,6 +1276,12 @@ function DockPublisher({
                     show={inputMode === 'text' && !draft.trim() && !showScheme3Bubble}
                     focused={inputFocused}
                   />
+                  {draftGuide && draft ? (
+                    <div className="dock-draft-guide-mirror" aria-hidden="true">
+                      <span className="dock-draft-guide-solid">{String(draft).replace(/[\u2009\u2006\u00A0 ]+$/,'')}</span>
+                      <span className="dock-draft-guide-hint">{draftGuide}</span>
+                    </div>
+                  ) : null}
                   <textarea
                     ref={textAreaRef}
                     rows="1"
@@ -1031,6 +1296,7 @@ function DockPublisher({
                     onFocus={()=>{
                       notifyGuideDockInteract();
                       setInputFocused(true);
+                      if(typeof onInputFocus === 'function') onInputFocus();
                     }}
                     onBlur={()=>setInputFocused(false)}
                     onKeyDown={(e)=>{
@@ -1041,6 +1307,7 @@ function DockPublisher({
                     }}
                   />
                 </div>
+                )
               ) : (
                 <div className={'dock-voice-wrap'+(recording?' is-recording':'')}>
                   {/* 演示浮层指示器 */}
@@ -1094,3 +1361,99 @@ function DockPublisher({
 }
 
 Object.assign(window, { DockPublisher, CloudPublisher: DockPublisher, UnifiedQuickIcon });
+
+const DOCK_FAKE_KB_ROWS = [
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l'],
+  ['z','x','c','v','b','n','m'],
+];
+const DOCK_FAKE_KB_CANDIDATES = ['的','了','是','我','不','在','有','和','人','这','他','们'];
+
+/** 方案演示用假键盘（收起快捷栏后弹出） */
+function DockFakeKeyboard({ onInsert, onBackspace, onReturn }){
+  const rootRef = React.useRef(null);
+  React.useLayoutEffect(()=>{
+    const el = rootRef.current;
+    const phone = el && el.closest('.phone');
+    if(!el || !phone) return undefined;
+    const sync = ()=>{
+      phone.style.setProperty('--dock-fake-kb-h', el.offsetHeight + 'px');
+    };
+    sync();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
+    ro?.observe(el);
+    return ()=>{
+      ro?.disconnect();
+      phone.style.removeProperty('--dock-fake-kb-h');
+    };
+  }, []);
+  return (
+    <div className="dock-fake-keyboard" ref={rootRef} role="group" aria-label="键盘">
+      <div className="dock-fake-kb-candidates" aria-hidden="true">
+        {DOCK_FAKE_KB_CANDIDATES.map((word)=>(
+          <button
+            key={word}
+            type="button"
+            className="dock-fake-kb-candidate"
+            onMouseDown={(e)=>e.preventDefault()}
+            onClick={()=>onInsert?.(word)}
+          >
+            {word}
+          </button>
+        ))}
+      </div>
+      <div className="dock-fake-kb-rows">
+        {DOCK_FAKE_KB_ROWS.map((row, rowIndex)=>(
+          <div key={rowIndex} className="dock-fake-kb-row">
+            {rowIndex === 2 ? (
+              <span className="dock-fake-kb-key is-wide is-muted" aria-hidden="true">⇧</span>
+            ) : null}
+            {row.map((key)=>(
+              <button
+                key={key}
+                type="button"
+                className="dock-fake-kb-key"
+                onMouseDown={(e)=>e.preventDefault()}
+                onClick={()=>onInsert?.(key)}
+              >
+                {key}
+              </button>
+            ))}
+            {rowIndex === 2 ? (
+              <button
+                type="button"
+                className="dock-fake-kb-key is-wide is-muted"
+                onMouseDown={(e)=>e.preventDefault()}
+                onClick={()=>onBackspace?.()}
+                aria-label="删除"
+              >
+                ⌫
+              </button>
+            ) : null}
+          </div>
+        ))}
+        <div className="dock-fake-kb-row is-bottom">
+          <span className="dock-fake-kb-key is-fn is-muted" aria-hidden="true">123</span>
+          <button
+            type="button"
+            className="dock-fake-kb-key is-space"
+            onMouseDown={(e)=>e.preventDefault()}
+            onClick={()=>onInsert?.(' ')}
+          >
+            空格
+          </button>
+          <button
+            type="button"
+            className="dock-fake-kb-key is-fn is-return"
+            onMouseDown={(e)=>e.preventDefault()}
+            onClick={()=>onReturn?.()}
+          >
+            换行
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { DockFakeKeyboard });

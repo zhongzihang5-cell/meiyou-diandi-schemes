@@ -1964,6 +1964,9 @@
 .tl-sister-ai-panel.is-collapsed{
   display:none;
 }
+.tl-sister-ai-panel > .tl-period-review-entry{
+  margin-bottom:-12px;
+}
 .tl-period-review-entry,
 .tl-card-review-entry{
   width:calc(100% + 32px);
@@ -3637,6 +3640,11 @@
 .v3-tag[data-cat="运动"]{color:#00cc99}
 .v3-tag[data-cat="睡眠"]{color:#2d5cad}
 .v3-tag[data-cat="喝水"]{color:#5ab8ff}
+.v3-tag[data-cat="月经来了"],
+.v3-tag[data-cat="月经走了"],
+.v3-tag[data-cat="月经"],
+.v3-tag[data-cat="经期"],
+.v3-tag[data-cat="period"]{color:#ff4d88}
 .v3-card-enter{
   animation:v3CardEnter 0.32s cubic-bezier(0.2,0,0,1) both;
 }
