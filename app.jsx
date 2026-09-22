@@ -671,7 +671,7 @@ function App(){
   const [timeline, setTimeline] = useState(initial.timeline);
 
   React.useEffect(()=>{
-    // 切换方案：清空输入与经期编排态，避免内容串到下一方案
+    // 切换方案：清空输入与经期编排态，避免内容串到下一方案；不强制弹键盘
     setPeriodComposeActive(false);
     setDraftGuide('');
     setDraft('');
@@ -683,7 +683,6 @@ function App(){
     setComposeSeqCompleted(false);
     setComposeDPrompts(null);
     setFeedingQuickExpanded(false);
-    setDockForceTextKey((k)=>k + 1);
   }, [t.scheme]);
 
   const [toasts, setToasts] = useState([]);
@@ -3803,11 +3802,11 @@ function App(){
                   options={[
                     {value:'A', label:'方案 A'},
                     {value:'A+', label:'方案 A+'},
-                    {value:'B', label:'方案 B'},
+                    {value:'B', label:'方案 B · 推荐'},
                     {value:'B+', label:'方案 B+'},
                     {value:'B++', label:'方案 B++'},
                     {value:'C', label:'方案 C'},
-                    {value:'D', label:'方案 D'},
+                    {value:'D', label:'方案 D · 推荐'},
                   ]}
                   onChange={(v)=>setTweak('scheme', v)}
                 />
@@ -3827,7 +3826,7 @@ function App(){
                 </TweakSection>
               ) : null}
               {(t.scheme || 'A') === 'B' ? (
-                <TweakSection label="方案 B">
+                <TweakSection label="方案 B · 推荐">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                     键盘弹起：胶囊输入 + 灰色补充标签快速填入
                   </div>
@@ -3855,7 +3854,7 @@ function App(){
                 </TweakSection>
               ) : null}
               {(t.scheme || 'A') === 'D' ? (
-                <TweakSection label="方案 D">
+                <TweakSection label="方案 D · 推荐">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                     单入口「记经期」→彩色走马灯；上方短引导点选后填入 A+ 句式
                   </div>
