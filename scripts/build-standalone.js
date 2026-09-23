@@ -308,7 +308,7 @@ function writeLegacyRedirects() {
   });
 }
 
-function buildHtml({ title, demoScene, locked, comment, builtAt }) {
+function buildHtml({ title, demoScene, locked, comment, builtAt, scheme = 'A' }) {
   const extraCss = locked ? STANDALONE_DEMO_CSS : '';
   const bodyClass = locked ? ' class="standalone-demo"' : '';
   const buildId = `${builtAt}-nomask`;
@@ -352,10 +352,10 @@ ${extraCss}
 <script>
 const TWEAK_DEFAULTS = {
   "demoScene": "${demoScene}",
-  "scheme": "A"
+  "scheme": "${scheme}"
 };
 window.__TWEAK_DEFAULTS = TWEAK_DEFAULTS;
-window.__LIVE_TWEAKS = { demoScene: "${demoScene}", scheme: "A" };
+window.__LIVE_TWEAKS = { demoScene: "${demoScene}", scheme: "${scheme}" };
 ${lockedScript}
 </script>
 
@@ -397,12 +397,26 @@ BUILDS.forEach((cfg) => {
       ...cfg,
       title: cfg.indexTitle || cfg.title,
       locked: false,
+      scheme: 'A',
       builtAt,
     });
     const indexPath = path.join(DOCS, 'index.html');
     fs.writeFileSync(indexPath, indexHtml, 'utf8');
     const indexKb = (Buffer.byteLength(indexHtml, 'utf8') / 1024).toFixed(1);
     console.log(`Wrote ${indexPath} (${indexKb} KB)`);
+
+    // A+B 结合细化专页（默认方案 AB）
+    const abHtml = buildHtml({
+      ...cfg,
+      title: '美柚 · 点滴 · A+B 细化',
+      comment: 'A+B 结合方案细化页：A 灰字引导 + B 补充标签',
+      locked: false,
+      scheme: 'AB',
+      builtAt,
+    });
+    const abPath = path.join(DOCS, 'ab-refine.html');
+    fs.writeFileSync(abPath, abHtml, 'utf8');
+    console.log(`Wrote ${abPath} (${(Buffer.byteLength(abHtml, 'utf8') / 1024).toFixed(1)} KB)`);
   }
 });
 

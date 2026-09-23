@@ -295,6 +295,7 @@ function resolvePeriodComposeGuide(scheme, kind){
   if(scheme === 'B' || scheme === 'B+' || scheme === 'B++') return '';
   if(scheme === 'C' || scheme === 'D') return '';
   if(scheme === 'A+') return '';
+  // A / AB：灰字引导
   return kind === 'end' ? '身体症状是...' : '量多还是少...';
 }
 
@@ -409,8 +410,8 @@ function schemeBppGroupIndexById(groupId, kind){
 }
 
 function periodComposeInlineTail(scheme, kind){
-  // A+ / B+ / D：正文预填「，流量是／，症状是」
-  if(scheme !== 'A+' && scheme !== 'B+' && scheme !== 'D') return '';
+  // A+ / D：正文预填「，流量是／，症状是」（B+ 不再预填）
+  if(scheme !== 'A+' && scheme !== 'D') return '';
   return kind === 'end' ? '，症状是' : '，流量是';
 }
 
@@ -3250,8 +3251,8 @@ function App(){
   };
 
   const currentScheme = t.scheme || 'A';
-  const schemeBComposeExtras = (currentScheme === 'B' || currentScheme === 'B+') && periodComposeActive
-    ? resolvePeriodComposeSupplements(draft, currentScheme)
+  const schemeBComposeExtras = (currentScheme === 'B' || currentScheme === 'B+' || currentScheme === 'AB') && periodComposeActive
+    ? resolvePeriodComposeSupplements(draft, currentScheme === 'AB' ? 'B' : currentScheme)
     : null;
   const schemeCComposeActive = currentScheme === 'C' && periodComposeActive;
   const schemeCEventKind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
@@ -3813,6 +3814,7 @@ function App(){
                     {value:'B', label:'方案 B · 推荐'},
                     {value:'B+', label:'方案 B+'},
                     {value:'B++', label:'方案 B++'},
+                    {value:'AB', label:'方案 A+B'},
                     {value:'C', label:'方案 C'},
                     {value:'D', label:'方案 D · 推荐'},
                   ]}
@@ -3843,7 +3845,7 @@ function App(){
               {(t.scheme || 'A') === 'B+' ? (
                 <TweakSection label="方案 B+">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                    同 B 标签；点进预填「，流量是／，症状是」；量有点少/量比较多、完全不痛/有点痛经成对互斥替换
+                    同 B；量有点少/量比较多、完全不痛/有点痛经成对互斥替换
                   </div>
                 </TweakSection>
               ) : null}
@@ -3851,6 +3853,13 @@ function App(){
                 <TweakSection label="方案 B++">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                     接续式：点进只有「月经来了」；首组昨天来了／前天来了→经量→疼痛→颜色；左右滑换组；点句子回组
+                  </div>
+                </TweakSection>
+              ) : null}
+              {(t.scheme || 'A') === 'AB' ? (
+                <TweakSection label="方案 A+B（细化中）">
+                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                    结合 A 灰字引导 + B 补充标签；专页 ab-refine.html 继续细化
                   </div>
                 </TweakSection>
               ) : null}
