@@ -409,7 +409,8 @@ function schemeBppGroupIndexById(groupId, kind){
 }
 
 function periodComposeInlineTail(scheme, kind){
-  if(scheme !== 'A+' && scheme !== 'D') return '';
+  // A+ / B+ / D：正文预填「，流量是／，症状是」
+  if(scheme !== 'A+' && scheme !== 'B+' && scheme !== 'D') return '';
   return kind === 'end' ? '，症状是' : '，流量是';
 }
 
@@ -3842,7 +3843,7 @@ function App(){
               {(t.scheme || 'A') === 'B+' ? (
                 <TweakSection label="方案 B+">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                    同 B；量有点少/量比较多、完全不痛/有点痛经成对互斥替换
+                    同 B 标签；点进预填「，流量是／，症状是」；量有点少/量比较多、完全不痛/有点痛经成对互斥替换
                   </div>
                 </TweakSection>
               ) : null}
