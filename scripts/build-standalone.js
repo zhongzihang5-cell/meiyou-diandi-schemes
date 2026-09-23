@@ -308,13 +308,14 @@ function writeLegacyRedirects() {
   });
 }
 
-function buildHtml({ title, demoScene, locked, comment, builtAt, scheme = 'A' }) {
+function buildHtml({ title, demoScene, locked, comment, builtAt, scheme = 'A', refinePage = false }) {
   const extraCss = locked ? STANDALONE_DEMO_CSS : '';
   const bodyClass = locked ? ' class="standalone-demo"' : '';
   const buildId = `${builtAt}-nomask`;
   const lockedScript = locked
     ? `window.__BUILD__ = "${buildId}";\nwindow.__STANDALONE_LOCKED_SCENE = true;`
     : `window.__BUILD__ = "${buildId}";\nwindow.__STANDALONE_LOCKED_SCENE = false;`;
+  const refineScript = refinePage ? '\nwindow.__AB_REFINE_PAGE__ = true;' : '';
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -356,7 +357,7 @@ const TWEAK_DEFAULTS = {
 };
 window.__TWEAK_DEFAULTS = TWEAK_DEFAULTS;
 window.__LIVE_TWEAKS = { demoScene: "${demoScene}", scheme: "${scheme}" };
-${lockedScript}
+${lockedScript}${refineScript}
 </script>
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
@@ -405,13 +406,14 @@ BUILDS.forEach((cfg) => {
     const indexKb = (Buffer.byteLength(indexHtml, 'utf8') / 1024).toFixed(1);
     console.log(`Wrote ${indexPath} (${indexKb} KB)`);
 
-    // A+B 结合细化专页（默认方案 AB）
+    // A+B++ 细化专页：A 灰字引导 + B++ 接续标签（无其他方案切换）
     const abHtml = buildHtml({
       ...cfg,
-      title: '美柚 · 点滴 · A+B 细化',
-      comment: 'A+B 结合方案细化页：A 灰字引导 + B 补充标签',
+      title: '美柚 · 点滴 · A+B++ 细化',
+      comment: 'A+B++ 结合细化：A 灰字引导叠在 B++ 接续标签上',
       locked: false,
       scheme: 'AB',
+      refinePage: true,
       builtAt,
     });
     const abPath = path.join(DOCS, 'ab-refine.html');

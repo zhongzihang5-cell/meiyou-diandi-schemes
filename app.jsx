@@ -291,11 +291,16 @@ function parseSchemeCDayLabel(label){
   return today;
 }
 
+/** AB 细化 = A 灰字引导 + B++ 接续标签 */
+function isSchemeBppCompose(scheme){
+  return scheme === 'B++' || scheme === 'AB';
+}
+
 function resolvePeriodComposeGuide(scheme, kind){
   if(scheme === 'B' || scheme === 'B+' || scheme === 'B++') return '';
   if(scheme === 'C' || scheme === 'D') return '';
   if(scheme === 'A+') return '';
-  // A / AB：灰字引导
+  // A / AB：灰字引导（AB 叠在 B++ 标签之上）
   return kind === 'end' ? '身体症状是...' : '量多还是少...';
 }
 
@@ -416,8 +421,8 @@ function periodComposeInlineTail(scheme, kind){
 }
 
 function buildPeriodComposeSeedDraft(scheme, kind){
-  // B++：点进来只有「月经来了／走了」，日期由首组标签补上
-  const base = scheme === 'B++'
+  // B++ / AB：点进来只有「月经来了／走了」，日期由首组标签补上
+  const base = isSchemeBppCompose(scheme)
     ? (kind === 'end' ? '月经走了' : '月经来了')
     : (kind === 'end' ? '今天月经走了' : '今天月经来了');
   const tail = periodComposeInlineTail(scheme, kind);
@@ -1889,7 +1894,7 @@ function App(){
       setComposeDayConfirmed(false);
       setComposeChipValues(emptySchemeCChipValues());
       setComposeOpenChip(null);
-      setComposeSeqGroupIndex(scheme === 'B++' ? schemeBppInitialGroupIndex() : 0);
+      setComposeSeqGroupIndex(isSchemeBppCompose(scheme) ? schemeBppInitialGroupIndex() : 0);
       setComposeSeqCompleted(false);
       setComposeDPrompts(null);
       setDraft(buildPeriodComposeSeedDraft(scheme, 'start'));
@@ -1903,7 +1908,7 @@ function App(){
       setComposeDayConfirmed(false);
       setComposeChipValues(emptySchemeCChipValues());
       setComposeOpenChip(null);
-      setComposeSeqGroupIndex(scheme === 'B++' ? schemeBppInitialGroupIndex() : 0);
+      setComposeSeqGroupIndex(isSchemeBppCompose(scheme) ? schemeBppInitialGroupIndex() : 0);
       setComposeSeqCompleted(false);
       setComposeDPrompts(null);
       setDraft(buildPeriodComposeSeedDraft(scheme, 'end'));
@@ -3251,12 +3256,12 @@ function App(){
   };
 
   const currentScheme = t.scheme || 'A';
-  const schemeBComposeExtras = (currentScheme === 'B' || currentScheme === 'B+' || currentScheme === 'AB') && periodComposeActive
-    ? resolvePeriodComposeSupplements(draft, currentScheme === 'AB' ? 'B' : currentScheme)
+  const schemeBComposeExtras = (currentScheme === 'B' || currentScheme === 'B+') && periodComposeActive
+    ? resolvePeriodComposeSupplements(draft, currentScheme)
     : null;
   const schemeCComposeActive = currentScheme === 'C' && periodComposeActive;
   const schemeCEventKind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
-  const schemeBppComposeActive = currentScheme === 'B++' && periodComposeActive;
+  const schemeBppComposeActive = isSchemeBppCompose(currentScheme) && periodComposeActive;
   const schemeBppKind = schemeCEventKind;
   const schemeBppGroupsList = schemeBppComposeActive ? schemeBppGroups(schemeBppKind) : [];
   const schemeBppShowTags = schemeBppComposeActive && !composeSeqCompleted;
@@ -3285,7 +3290,8 @@ function App(){
     const groups = schemeBppGroups(schemeBppKind);
     const atLast = schemeBppGroupSafeIndex >= groups.length - 1;
     setDraft((prev)=>applySchemeBppTagToDraft(prev, group, tag, schemeBppKind));
-    setDraftGuide('');
+    // AB：保留 A 灰字引导，叠在 B++ 标签流程上
+    if(currentScheme !== 'AB') setDraftGuide('');
     if(atLast){
       setComposeSeqCompleted(true);
     }else{
@@ -3357,7 +3363,7 @@ function App(){
       }
       return;
     }
-    if(currentScheme === 'B++'){
+    if(isSchemeBppCompose(currentScheme)){
       const isSeed = solid === '月经来了' || solid === '月经走了';
       if(isSeed){
         setComposeSeqCompleted(false);
@@ -3795,7 +3801,7 @@ function App(){
       ) : null}
       </div>
 
-      {!window.__STANDALONE_LOCKED_SCENE && (
+      {!window.__STANDALONE_LOCKED_SCENE && !window.__AB_REFINE_PAGE__ && (
         <div className="demo-controls-stack">
           <DemoSceneBar
             value={t.demoScene}
@@ -3814,7 +3820,6 @@ function App(){
                     {value:'B', label:'方案 B · 推荐'},
                     {value:'B+', label:'方案 B+'},
                     {value:'B++', label:'方案 B++'},
-                    {value:'AB', label:'方案 A+B'},
                     {value:'C', label:'方案 C'},
                     {value:'D', label:'方案 D · 推荐'},
                   ]}
@@ -3853,13 +3858,6 @@ function App(){
                 <TweakSection label="方案 B++">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                     接续式：点进只有「月经来了」；首组昨天来了／前天来了→经量→疼痛→颜色；左右滑换组；点句子回组
-                  </div>
-                </TweakSection>
-              ) : null}
-              {(t.scheme || 'A') === 'AB' ? (
-                <TweakSection label="方案 A+B（细化中）">
-                  <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                    结合 A 灰字引导 + B 补充标签；专页 ab-refine.html 继续细化
                   </div>
                 </TweakSection>
               ) : null}
