@@ -2539,9 +2539,11 @@ html[data-scheme="D"] .dock-draft-guide-hint{
   width:1.5px;
   height:1.05em;
   margin-left:1px;
+  margin-right:1px;
   background:#ff4d88;
   border-radius:1px;
   vertical-align:-0.12em;
+  flex-shrink:0;
   animation:dock-bpp-caret-blink 1.1s steps(1) infinite;
 }
 @keyframes dock-bpp-caret-blink{

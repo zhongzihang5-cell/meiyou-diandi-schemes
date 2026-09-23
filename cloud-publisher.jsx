@@ -516,6 +516,7 @@ function DockPublisher({
   onComposeSeqSwipe,
   composeSeqTokens = null,
   onComposeSeqTokenFocus,
+  composeSeqLockPrefix = false,
   composeVariant = null,
   composeDay = '今天',
   composeDayConfirmed = false,
@@ -985,7 +986,7 @@ function DockPublisher({
       if(tok.kind === 'tag' && i > 0){
         nodes.push(<span key={'sep-'+i} className="dock-bpp-token-sep">，</span>);
       }
-      if(tok.groupId && composeSeqInteractive){
+      if(tok.groupId && composeSeqInteractive && !(composeSeqLockPrefix && (tok.kind === 'day' || tok.kind === 'event'))){
         nodes.push(
           <button
             key={'tok-'+i+'-'+tok.text}
@@ -1505,8 +1506,8 @@ function DockPublisher({
                   {composeVariant === 'B++' && composeSeqTokens?.length ? (
                     <div className="dock-bpp-token-mirror" aria-hidden="true">
                       {renderComposeSeqTokens()}
-                      {draftGuide ? <span className="dock-draft-guide-hint">{draftGuide}</span> : null}
                       {inputFocused ? <span className="dock-bpp-caret"/> : null}
+                      {draftGuide ? <span className="dock-draft-guide-hint">{draftGuide}</span> : null}
                     </div>
                   ) : null}
                 </div>

@@ -1971,9 +1971,21 @@ function App(){
   };
 
   const handleDraftChange = (value)=>{
-    setDraft(value);
+    let next = value;
+    const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
+    if(scheme === 'AB'){
+      const isEnd = /月经走了|走喽/.test(String(draft || '')) || /月经走了|走喽/.test(String(value || ''));
+      const prefix = isEnd ? '今天月经走了' : '今天月经来了';
+      if(!String(next).startsWith(prefix)){
+        const rest = String(next || '')
+          .replace(/^(今天|昨天|前天)?\s*月经(来了|走了)?/, '')
+          .replace(/^[，,\s]+/, '');
+        next = rest ? prefix + '，' + rest : prefix + ' ';
+      }
+    }
+    setDraft(next);
     if(!draftGuide) return;
-    const solid = value.replace(/[\u2009\u2006\u00A0 ]+$/, '');
+    const solid = String(next).replace(/[\u2009\u2006\u00A0 ]+$/, '');
     if(solid !== '今天月经来了' && solid !== '今天月经走了'
       && solid !== '月经来了' && solid !== '月经走了'){
       setDraftGuide('');
@@ -3159,8 +3171,13 @@ function App(){
   };
 
   const handleFakeKbBackspace = ()=>{
+    const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
     setDraft((prev)=>{
       const base = String(prev || '').replace(/[\u2009\u2006\u00A0 ]+$/, '');
+      if(scheme === 'AB'){
+        const prefix = /月经走了|走喽/.test(base) ? '今天月经走了' : '今天月经来了';
+        if(base.length <= prefix.length) return prefix + ' ';
+      }
       return base.slice(0, -1);
     });
     setDraftGuide('');
@@ -3752,6 +3769,7 @@ function App(){
           onComposeSeqSwipe={handleComposeSeqSwipe}
           composeSeqTokens={schemeBppTokens}
           onComposeSeqTokenFocus={handleComposeSeqTokenFocus}
+          composeSeqLockPrefix={currentScheme === 'AB'}
           composeVariant={schemeCComposeActive ? 'C' : (schemeBppComposeActive ? 'B++' : null)}
           composeDay={composeDay}
           composeDayConfirmed={composeDayConfirmed}
