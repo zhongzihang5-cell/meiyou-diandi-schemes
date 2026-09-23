@@ -198,6 +198,12 @@ const SCHEME_BPP_GROUPS_START_TAIL = [
   { id:'pain', label:'疼痛', options:['完全不痛', '有点痛经', '比较痛'] },
   { id:'color', label:'颜色', options:['鲜红色', '褐色', '有血块'] },
 ];
+/** AB 细化：无日期组；流量 → 颜色 → 痛感，引导随组切换 */
+const SCHEME_AB_GROUPS_START = [
+  { id:'flow', label:'经量', options:['量有点少', '量正常', '量比较多'] },
+  { id:'color', label:'颜色', options:['鲜红色', '褐色', '有血块'] },
+  { id:'pain', label:'疼痛', options:['完全不痛', '有点痛经', '比较痛'] },
+];
 const SCHEME_BPP_GROUPS_END_TAIL = [
   { id:'status', label:'干净程度', options:['彻底干净了', '还有一点点'] },
   { id:'remain', label:'残留', options:['还有点褐色', '完全不痛了'] },
@@ -291,16 +297,34 @@ function parseSchemeCDayLabel(label){
   return today;
 }
 
-/** AB 细化 = A 灰字引导 + B++ 接续标签 */
+/** AB 细化 = A 式陈述引导 + B++ 接续标签（无日期组） */
 function isSchemeBppCompose(scheme){
   return scheme === 'B++' || scheme === 'AB';
+}
+
+/** AB：随当前标签组切换的陈述句引导 */
+function resolveSchemeAbGroupGuide(group, kind){
+  if(!group) return '';
+  if(kind === 'end'){
+    if(group.id === 'status') return '干净程度是...';
+    if(group.id === 'remain') return '身体感觉是...';
+    return '';
+  }
+  if(group.id === 'flow') return '流量是...';
+  if(group.id === 'color') return '经血颜色是...';
+  if(group.id === 'pain') return '痛感...';
+  return '';
 }
 
 function resolvePeriodComposeGuide(scheme, kind){
   if(scheme === 'B' || scheme === 'B+' || scheme === 'B++') return '';
   if(scheme === 'C' || scheme === 'D') return '';
   if(scheme === 'A+') return '';
-  // A / AB：灰字引导（AB 叠在 B++ 标签之上）
+  if(scheme === 'AB'){
+    const groups = schemeBppGroups(kind, 'AB');
+    return resolveSchemeAbGroupGuide(groups[0], kind);
+  }
+  // A：灰字引导
   return kind === 'end' ? '身体症状是...' : '量多还是少...';
 }
 
@@ -343,14 +367,17 @@ function schemeBppDayChipSelected(draftText, chip, kind){
   return cur === label;
 }
 
-function schemeBppGroups(kind){
+function schemeBppGroups(kind, scheme){
+  if(scheme === 'AB'){
+    return kind === 'end' ? SCHEME_BPP_GROUPS_END_TAIL : SCHEME_AB_GROUPS_START;
+  }
   const dayGroup = { id:'day', label:'日期', options: schemeBppDayChips(kind) };
   const tail = kind === 'end' ? SCHEME_BPP_GROUPS_END_TAIL : SCHEME_BPP_GROUPS_START_TAIL;
   return [dayGroup, ...tail];
 }
 
-function findSchemeBppGroupByOption(tag, kind){
-  return schemeBppGroups(kind).find((g)=>g.options.includes(tag)) || null;
+function findSchemeBppGroupByOption(tag, kind, scheme){
+  return schemeBppGroups(kind, scheme).find((g)=>g.options.includes(tag)) || null;
 }
 
 function applySchemeBppTagToDraft(draftText, group, tag, kind='start'){
@@ -379,9 +406,9 @@ function applySchemeBppTagToDraft(draftText, group, tag, kind='start'){
   return next + '，' + tag;
 }
 
-function parseSchemeBppDraftTokens(draftText, kind){
+function parseSchemeBppDraftTokens(draftText, kind, scheme){
   const raw = String(draftText || '').replace(/[，,\u2009\u2006\u00A0\s]+$/, '');
-  const groups = schemeBppGroups(kind);
+  const groups = schemeBppGroups(kind, scheme);
   const day = schemeBppDayLabelFromDraft(raw);
   let rest = day ? raw.slice(day.length) : raw;
   const eventMatch = /^(月经来了|月经走了)/.exec(rest);
@@ -409,8 +436,8 @@ function schemeBppInitialGroupIndex(){
   return 0;
 }
 
-function schemeBppGroupIndexById(groupId, kind){
-  const idx = schemeBppGroups(kind).findIndex((g)=>g.id === groupId);
+function schemeBppGroupIndexById(groupId, kind, scheme){
+  const idx = schemeBppGroups(kind, scheme).findIndex((g)=>g.id === groupId);
   return idx >= 0 ? idx : 0;
 }
 
@@ -421,8 +448,12 @@ function periodComposeInlineTail(scheme, kind){
 }
 
 function buildPeriodComposeSeedDraft(scheme, kind){
-  // B++ / AB：点进来只有「月经来了／走了」，日期由首组标签补上
-  const base = isSchemeBppCompose(scheme)
+  // AB：无日期标签，默认「今天月经来了／走了」+ 组引导
+  if(scheme === 'AB'){
+    return (kind === 'end' ? '今天月经走了' : '今天月经来了') + ' ';
+  }
+  // B++：点进来只有「月经来了／走了」，日期由首组标签补上
+  const base = scheme === 'B++'
     ? (kind === 'end' ? '月经走了' : '月经来了')
     : (kind === 'end' ? '今天月经走了' : '今天月经来了');
   const tail = periodComposeInlineTail(scheme, kind);
@@ -3263,7 +3294,7 @@ function App(){
   const schemeCEventKind = /月经走了|走喽/.test(draft) ? 'end' : 'start';
   const schemeBppComposeActive = isSchemeBppCompose(currentScheme) && periodComposeActive;
   const schemeBppKind = schemeCEventKind;
-  const schemeBppGroupsList = schemeBppComposeActive ? schemeBppGroups(schemeBppKind) : [];
+  const schemeBppGroupsList = schemeBppComposeActive ? schemeBppGroups(schemeBppKind, currentScheme) : [];
   const schemeBppShowTags = schemeBppComposeActive && !composeSeqCompleted;
   const schemeBppGroupSafeIndex = schemeBppShowTags
     ? Math.max(0, Math.min(composeSeqGroupIndex, Math.max(0, schemeBppGroupsList.length - 1)))
@@ -3272,13 +3303,16 @@ function App(){
     ? (schemeBppGroupsList[schemeBppGroupSafeIndex] || null)
     : null;
   const schemeBppTokens = schemeBppComposeActive
-    ? parseSchemeBppDraftTokens(draft, schemeBppKind)
+    ? parseSchemeBppDraftTokens(draft, schemeBppKind, currentScheme)
     : null;
+  const schemeAbComposeGuide = currentScheme === 'AB' && periodComposeActive && !composeSeqCompleted
+    ? resolveSchemeAbGroupGuide(schemeBppActiveGroup, schemeBppKind)
+    : '';
 
   const advanceComposeSeqGroup = (delta = 1)=>{
     if(composeSeqCompleted) return;
     setComposeSeqGroupIndex((prev)=>{
-      const groups = schemeBppGroups(schemeBppKind);
+      const groups = schemeBppGroups(schemeBppKind, currentScheme);
       if(!groups.length) return 0;
       return Math.max(0, Math.min(groups.length - 1, prev + delta));
     });
@@ -3287,13 +3321,14 @@ function App(){
   const handleComposeSeqPick = (tag)=>{
     if(!schemeBppActiveGroup || !tag || composeSeqCompleted) return;
     const group = schemeBppActiveGroup;
-    const groups = schemeBppGroups(schemeBppKind);
+    const groups = schemeBppGroups(schemeBppKind, currentScheme);
     const atLast = schemeBppGroupSafeIndex >= groups.length - 1;
     setDraft((prev)=>applySchemeBppTagToDraft(prev, group, tag, schemeBppKind));
-    // AB：保留 A 灰字引导，叠在 B++ 标签流程上
+    // AB 引导由当前组派生；其他方案选完即清引导
     if(currentScheme !== 'AB') setDraftGuide('');
     if(atLast){
       setComposeSeqCompleted(true);
+      if(currentScheme === 'AB') setDraftGuide('');
     }else{
       setComposeSeqGroupIndex((prev)=>Math.min(groups.length - 1, prev + 1));
     }
@@ -3302,9 +3337,10 @@ function App(){
 
   const handleComposeSeqSkip = ()=>{
     if(composeSeqCompleted) return;
-    const groups = schemeBppGroups(schemeBppKind);
+    const groups = schemeBppGroups(schemeBppKind, currentScheme);
     if(schemeBppGroupSafeIndex >= groups.length - 1){
       setComposeSeqCompleted(true);
+      if(currentScheme === 'AB') setDraftGuide('');
       return;
     }
     advanceComposeSeqGroup(1);
@@ -3364,7 +3400,9 @@ function App(){
       return;
     }
     if(isSchemeBppCompose(currentScheme)){
-      const isSeed = solid === '月经来了' || solid === '月经走了';
+      const isSeed = currentScheme === 'AB'
+        ? (solid === '今天月经来了' || solid === '今天月经走了')
+        : (solid === '月经来了' || solid === '月经走了');
       if(isSeed){
         setComposeSeqCompleted(false);
         setComposeSeqGroupIndex(schemeBppInitialGroupIndex());
@@ -3558,7 +3596,9 @@ function App(){
         {!voiceTranscribe && (
         <DockPublisher
           draft={draft}
-          draftGuide={periodComposeActive ? draftGuide : ''}
+          draftGuide={periodComposeActive
+            ? (currentScheme === 'AB' ? schemeAbComposeGuide : draftGuide)
+            : ''}
           onDraft={handleDraftChange}
           onSend={()=>submitText()}
           onQuickMark={submitQuickMark}
@@ -3677,7 +3717,9 @@ function App(){
         {!voiceTranscribe && (
         <DockPublisher
           draft={draft}
-          draftGuide={periodComposeActive ? draftGuide : ''}
+          draftGuide={periodComposeActive
+            ? (currentScheme === 'AB' ? schemeAbComposeGuide : draftGuide)
+            : ''}
           onDraft={handleDraftChange}
           onSend={()=>submitText()}
           onQuickMark={submitQuickMark}
