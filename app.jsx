@@ -3890,15 +3890,15 @@ function App(){
                           : 'A++B'
                       }
                       options={[
-                        {value:'A++B', label:'方案 A++B'},
-                        {value:'A+', label:'方案 A+'},
                         {value:'A', label:'方案 A'},
+                        {value:'A+', label:'方案 A+'},
+                        {value:'A++B', label:'方案 A+B'},
                       ]}
                       onChange={(v)=>setTweak('scheme', v)}
                     />
                   </TweakSection>
                   {isSchemeAppB(t.scheme || 'A++B') ? (
-                    <TweakSection label="方案 A++B">
+                    <TweakSection label="方案 A+B">
                       <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                         今天锁定 + 接续标签；引导随组切换：流量是…／经血颜色是…／痛感…
                       </div>

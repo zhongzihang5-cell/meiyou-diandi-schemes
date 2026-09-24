@@ -5,7 +5,7 @@
 ## 预览
 
 - **A++B 细化（对外预览）**：[`ab-refine.html`](./ab-refine.html) / Pages `/ab-refine.html`  
-  默认 **方案 A++B**；Tweaks 可切换 **A++B / A+ / A**。
+  默认 **方案 A+B**；Tweaks 顺序 **A → A+ → A+B**。
 - 多方案对比（内部）：根目录 `index.html` / Pages `/`
 
 ## 方案说明（对比页）
