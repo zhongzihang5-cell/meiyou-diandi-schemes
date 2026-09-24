@@ -323,12 +323,8 @@ function resolveSchemeAbGroupGuide(group, kind){
 function resolvePeriodComposeGuide(scheme, kind){
   if(scheme === 'B' || scheme === 'B+' || scheme === 'B++') return '';
   if(scheme === 'C' || scheme === 'D') return '';
-  if(scheme === 'A') return ''; // 新方案 A：无「量多还是少」引导
-  if(isSchemeAppB(scheme)){
-    const groups = schemeBppGroups(kind, scheme);
-    return resolveSchemeAbGroupGuide(groups[0], kind);
-  }
-  // A+：原方案 A 灰字引导
+  if(scheme === 'A' || isSchemeAppB(scheme)) return ''; // A / A+B：无灰字引导
+  // 对比页遗留 A+：灰字引导（细化页已下线该方案）
   if(scheme === 'A+'){
     return kind === 'end' ? '身体症状是...' : '量多还是少...';
   }
@@ -3329,9 +3325,7 @@ function App(){
   const schemeBppTokens = schemeBppComposeActive
     ? parseSchemeBppDraftTokens(draft, schemeBppKind, currentScheme)
     : null;
-  const schemeAbComposeGuide = isSchemeAppB(currentScheme) && periodComposeActive && !composeSeqCompleted
-    ? resolveSchemeAbGroupGuide(schemeBppActiveGroup, schemeBppKind)
-    : '';
+  const schemeAbComposeGuide = '';
 
   const advanceComposeSeqGroup = (delta = 1)=>{
     if(composeSeqCompleted) return;
@@ -3348,11 +3342,9 @@ function App(){
     const groups = schemeBppGroups(schemeBppKind, currentScheme);
     const atLast = schemeBppGroupSafeIndex >= groups.length - 1;
     setDraft((prev)=>applySchemeBppTagToDraft(prev, group, tag, schemeBppKind));
-    // A++B 引导由当前组派生；其他方案选完即清引导
-    if(!isSchemeAppB(currentScheme)) setDraftGuide('');
+    setDraftGuide('');
     if(atLast){
       setComposeSeqCompleted(true);
-      if(isSchemeAppB(currentScheme)) setDraftGuide('');
     }else{
       setComposeSeqGroupIndex((prev)=>Math.min(groups.length - 1, prev + 1));
     }
@@ -3364,7 +3356,6 @@ function App(){
     const groups = schemeBppGroups(schemeBppKind, currentScheme);
     if(schemeBppGroupSafeIndex >= groups.length - 1){
       setComposeSeqCompleted(true);
-      if(isSchemeAppB(currentScheme)) setDraftGuide('');
       return;
     }
     advanceComposeSeqGroup(1);
@@ -3884,14 +3875,9 @@ function App(){
                   <TweakSection label="方案">
                     <TweakRadio
                       label="当前方案"
-                      value={
-                        t.scheme === 'A' ? 'A'
-                          : t.scheme === 'A+' ? 'A+'
-                          : 'A++B'
-                      }
+                      value={t.scheme === 'A' ? 'A' : 'A++B'}
                       options={[
                         {value:'A', label:'方案 A'},
-                        {value:'A+', label:'方案 A+'},
                         {value:'A++B', label:'方案 A+B'},
                       ]}
                       onChange={(v)=>setTweak('scheme', v)}
@@ -3900,21 +3886,14 @@ function App(){
                   {isSchemeAppB(t.scheme || 'A++B') ? (
                     <TweakSection label="方案 A+B">
                       <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                        今天锁定 + 接续标签；引导随组切换：流量是…／经血颜色是…／痛感…
-                      </div>
-                    </TweakSection>
-                  ) : null}
-                  {t.scheme === 'A+' ? (
-                    <TweakSection label="方案 A+">
-                      <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                        月经来了：量多还是少…／月经走了：身体症状是…
+                        今天锁定 + 接续建议标签（经量→颜色→疼痛）；无灰字引导文案
                       </div>
                     </TweakSection>
                   ) : null}
                   {t.scheme === 'A' ? (
                     <TweakSection label="方案 A">
                       <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                        仅「今天月经来了／走了」，无灰字引导
+                        仅「今天月经来了／走了」自动填充，无引导、无标签
                       </div>
                     </TweakSection>
                   ) : null}
