@@ -3861,15 +3861,47 @@ function App(){
       ) : null}
       </div>
 
-      {!window.__STANDALONE_LOCKED_SCENE && !window.__AB_REFINE_PAGE__ && (
+      {!window.__STANDALONE_LOCKED_SCENE && (
         <div className="demo-controls-stack">
-          <DemoSceneBar
-            value={t.demoScene}
-            onChange={(v)=>setTweak('demoScene', v)}
-            description={scene.description}
-          />
+          {!window.__AB_REFINE_PAGE__ ? (
+            <DemoSceneBar
+              value={t.demoScene}
+              onChange={(v)=>setTweak('demoScene', v)}
+              description={scene.description}
+            />
+          ) : null}
           {window.TweaksPanel ? (
             <TweaksPanel title="方案 Tweaks" noDeckControls>
+              {window.__AB_REFINE_PAGE__ ? (
+                <>
+                  <TweakSection label="方案">
+                    <TweakRadio
+                      label="当前方案"
+                      value={t.scheme === 'A' ? 'A' : 'AB'}
+                      options={[
+                        {value:'AB', label:'方案 A+B++'},
+                        {value:'A', label:'方案 A'},
+                      ]}
+                      onChange={(v)=>setTweak('scheme', v)}
+                    />
+                  </TweakSection>
+                  {(t.scheme || 'AB') !== 'A' ? (
+                    <TweakSection label="方案 A+B++">
+                      <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                        今天锁定 + 接续标签；引导随组切换：流量是…／经血颜色是…／痛感…
+                      </div>
+                    </TweakSection>
+                  ) : null}
+                  {t.scheme === 'A' ? (
+                    <TweakSection label="方案 A">
+                      <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                        月经来了：量多还是少…／月经走了：身体症状是…
+                      </div>
+                    </TweakSection>
+                  ) : null}
+                </>
+              ) : (
+                <>
               <TweakSection label="方案">
                 <TweakRadio
                   label="当前方案"
@@ -3935,6 +3967,8 @@ function App(){
                   </div>
                 </TweakSection>
               ) : null}
+                </>
+              )}
             </TweaksPanel>
           ) : null}
         </div>
