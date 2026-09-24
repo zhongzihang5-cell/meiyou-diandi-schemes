@@ -4,28 +4,28 @@
 
 ## 预览
 
-- **A+B++ 细化（对外预览）**：[`ab-refine.html`](./ab-refine.html) / Pages `/ab-refine.html`  
-  默认 **A 灰字引导 + B++ 接续标签**；Tweaks 可切换 **方案 A+B++** / **方案 A**。
+- **A++B 细化（对外预览）**：[`ab-refine.html`](./ab-refine.html) / Pages `/ab-refine.html`  
+  默认 **方案 A++B**；Tweaks 可切换 **A++B / A+ / A**。
 - 多方案对比（内部）：根目录 `index.html` / Pages `/`
 
 ## 方案说明（对比页）
 
-右下角 **方案 Tweaks**：方案 **A · 推荐** / A+ / **B · 推荐** / B+ / B++ / C / **D · 推荐**。
+右下角 **方案 Tweaks**：方案 **A** / **A+** / **B · 推荐** / B+ / B++ / C / **D · 推荐**。
 
 - **共享基线**：经期快捷「月经来了 / 走了」、假键盘、收起平铺项、点空白收起、点输入框再弹起、发送后正文+标签等。切换方案时输入框清空，且不默认弹起键盘。
-- **差异位**：`html[data-scheme="A|A+|B|B+|B++|C|D"]`
-  - **A（推荐）**：来了 → `量多还是少…`；走了 → `身体症状是…`
-  - **A+**：来了 → `，流量是`；走了 → `，症状是`；光标停在「是」后
+- **差异位**：`html[data-scheme="A|A+|B|B+|B++|A++B|C|D"]`
+  - **A**：仅「今天月经来了／走了」，无灰字引导
+  - **A+**：来了 → `量多还是少…`；走了 → `身体症状是…`（原方案 A）
   - **B（推荐）**：胶囊输入 + 补充标签（逗号连接）
   - **B+**：同 B；`量有点少/量比较多`、`完全不痛/有点痛经` 成对互斥、同组替换（无预填）
   - **B++**：接续式；点进只有「月经来了」；首组昨天来了／前天来了→经量→疼痛→颜色；左右滑换组
   - **C**：今天可点选 + 流量／颜色／痛经浮层
-  - **D（推荐）**：单入口「记经期」→彩色走马灯 + A+ 句式
+  - **D（推荐）**：单入口「记经期」→彩色走马灯 + `，流量是／，症状是` 预填
 
-### A+B++ 细化页
+### A++B 细化页
 
 ```js
 // ab-refine.html
-TWEAK_DEFAULTS = { demoScene: "note-quick-record", scheme: "AB" }
-window.__AB_REFINE_PAGE__ = true  // Tweaks 仅 A+B++ / A
+TWEAK_DEFAULTS = { demoScene: "note-quick-record", scheme: "A++B" }
+window.__AB_REFINE_PAGE__ = true  // Tweaks：A++B / A+ / A
 ```

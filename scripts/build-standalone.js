@@ -406,13 +406,13 @@ BUILDS.forEach((cfg) => {
     const indexKb = (Buffer.byteLength(indexHtml, 'utf8') / 1024).toFixed(1);
     console.log(`Wrote ${indexPath} (${indexKb} KB)`);
 
-    // A+B++ 细化专页：A 灰字引导 + B++ 接续标签（无其他方案切换）
+    // A++B 细化专页：陈述引导 + B++ 接续标签；Tweaks 可切 A / A+ / A++B
     const abHtml = buildHtml({
       ...cfg,
-      title: '美柚 · 点滴 · A+B++ 细化',
-      comment: 'A+B++ 结合细化：A 灰字引导叠在 B++ 接续标签上',
+      title: '美柚 · 点滴 · A++B 细化',
+      comment: 'A++B 细化：陈述引导叠在 B++ 接续标签上；可对比方案 A / A+',
       locked: false,
-      scheme: 'AB',
+      scheme: 'A++B',
       refinePage: true,
       builtAt,
     });

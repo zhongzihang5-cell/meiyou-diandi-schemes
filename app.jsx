@@ -198,7 +198,7 @@ const SCHEME_BPP_GROUPS_START_TAIL = [
   { id:'pain', label:'疼痛', options:['完全不痛', '有点痛经', '比较痛'] },
   { id:'color', label:'颜色', options:['鲜红色', '褐色', '有血块'] },
 ];
-/** AB 细化：无日期组；流量 → 颜色 → 痛感，引导随组切换 */
+/** AB 细化：无日期组；流量 → 颜色 → 痛感，引导随组切换（方案 A++B） */
 const SCHEME_AB_GROUPS_START = [
   { id:'flow', label:'经量', options:['量有点少', '量正常', '量比较多'] },
   { id:'color', label:'颜色', options:['鲜红色', '褐色', '有血块'] },
@@ -297,12 +297,16 @@ function parseSchemeCDayLabel(label){
   return today;
 }
 
-/** AB 细化 = A 式陈述引导 + B++ 接续标签（无日期组） */
-function isSchemeBppCompose(scheme){
-  return scheme === 'B++' || scheme === 'AB';
+/** A++B 细化 = 陈述引导 + B++ 接续标签（无日期组）；兼容旧 id AB */
+function isSchemeAppB(scheme){
+  return scheme === 'A++B' || scheme === 'AB';
 }
 
-/** AB：随当前标签组切换的陈述句引导 */
+function isSchemeBppCompose(scheme){
+  return scheme === 'B++' || isSchemeAppB(scheme);
+}
+
+/** A++B：随当前标签组切换的陈述句引导 */
 function resolveSchemeAbGroupGuide(group, kind){
   if(!group) return '';
   if(kind === 'end'){
@@ -319,13 +323,16 @@ function resolveSchemeAbGroupGuide(group, kind){
 function resolvePeriodComposeGuide(scheme, kind){
   if(scheme === 'B' || scheme === 'B+' || scheme === 'B++') return '';
   if(scheme === 'C' || scheme === 'D') return '';
-  if(scheme === 'A+') return '';
-  if(scheme === 'AB'){
-    const groups = schemeBppGroups(kind, 'AB');
+  if(scheme === 'A') return ''; // 新方案 A：无「量多还是少」引导
+  if(isSchemeAppB(scheme)){
+    const groups = schemeBppGroups(kind, scheme);
     return resolveSchemeAbGroupGuide(groups[0], kind);
   }
-  // A：灰字引导
-  return kind === 'end' ? '身体症状是...' : '量多还是少...';
+  // A+：原方案 A 灰字引导
+  if(scheme === 'A+'){
+    return kind === 'end' ? '身体症状是...' : '量多还是少...';
+  }
+  return '';
 }
 
 function schemeBppEventWord(kind){
@@ -368,7 +375,7 @@ function schemeBppDayChipSelected(draftText, chip, kind){
 }
 
 function schemeBppGroups(kind, scheme){
-  if(scheme === 'AB'){
+  if(isSchemeAppB(scheme)){
     return kind === 'end' ? SCHEME_BPP_GROUPS_END_TAIL : SCHEME_AB_GROUPS_START;
   }
   const dayGroup = { id:'day', label:'日期', options: schemeBppDayChips(kind) };
@@ -442,14 +449,14 @@ function schemeBppGroupIndexById(groupId, kind, scheme){
 }
 
 function periodComposeInlineTail(scheme, kind){
-  // A+ / D：正文预填「，流量是／，症状是」（B+ 不再预填）
-  if(scheme !== 'A+' && scheme !== 'D') return '';
+  // 仅 D 预填「，流量是／，症状是」（原 A+ 预填已改为灰字引导）
+  if(scheme !== 'D') return '';
   return kind === 'end' ? '，症状是' : '，流量是';
 }
 
 function buildPeriodComposeSeedDraft(scheme, kind){
-  // AB：无日期标签，默认「今天月经来了／走了」+ 组引导
-  if(scheme === 'AB'){
+  // A++B：无日期标签，默认「今天月经来了／走了」+ 组引导
+  if(isSchemeAppB(scheme)){
     return (kind === 'end' ? '今天月经走了' : '今天月经来了') + ' ';
   }
   // B++：点进来只有「月经来了／走了」，日期由首组标签补上
@@ -1973,7 +1980,7 @@ function App(){
   const handleDraftChange = (value)=>{
     let next = value;
     const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
-    if(scheme === 'AB'){
+    if(isSchemeAppB(scheme)){
       const isEnd = /月经走了|走喽/.test(String(draft || '')) || /月经走了|走喽/.test(String(value || ''));
       const prefix = isEnd ? '今天月经走了' : '今天月经来了';
       if(!String(next).startsWith(prefix)){
@@ -3174,7 +3181,7 @@ function App(){
     const scheme = window.__LIVE_TWEAKS?.scheme || t.scheme || 'A';
     setDraft((prev)=>{
       const base = String(prev || '').replace(/[\u2009\u2006\u00A0 ]+$/, '');
-      if(scheme === 'AB'){
+      if(isSchemeAppB(scheme)){
         const prefix = /月经走了|走喽/.test(base) ? '今天月经走了' : '今天月经来了';
         if(base.length <= prefix.length) return prefix + ' ';
       }
@@ -3322,7 +3329,7 @@ function App(){
   const schemeBppTokens = schemeBppComposeActive
     ? parseSchemeBppDraftTokens(draft, schemeBppKind, currentScheme)
     : null;
-  const schemeAbComposeGuide = currentScheme === 'AB' && periodComposeActive && !composeSeqCompleted
+  const schemeAbComposeGuide = isSchemeAppB(currentScheme) && periodComposeActive && !composeSeqCompleted
     ? resolveSchemeAbGroupGuide(schemeBppActiveGroup, schemeBppKind)
     : '';
 
@@ -3341,11 +3348,11 @@ function App(){
     const groups = schemeBppGroups(schemeBppKind, currentScheme);
     const atLast = schemeBppGroupSafeIndex >= groups.length - 1;
     setDraft((prev)=>applySchemeBppTagToDraft(prev, group, tag, schemeBppKind));
-    // AB 引导由当前组派生；其他方案选完即清引导
-    if(currentScheme !== 'AB') setDraftGuide('');
+    // A++B 引导由当前组派生；其他方案选完即清引导
+    if(!isSchemeAppB(currentScheme)) setDraftGuide('');
     if(atLast){
       setComposeSeqCompleted(true);
-      if(currentScheme === 'AB') setDraftGuide('');
+      if(isSchemeAppB(currentScheme)) setDraftGuide('');
     }else{
       setComposeSeqGroupIndex((prev)=>Math.min(groups.length - 1, prev + 1));
     }
@@ -3357,7 +3364,7 @@ function App(){
     const groups = schemeBppGroups(schemeBppKind, currentScheme);
     if(schemeBppGroupSafeIndex >= groups.length - 1){
       setComposeSeqCompleted(true);
-      if(currentScheme === 'AB') setDraftGuide('');
+      if(isSchemeAppB(currentScheme)) setDraftGuide('');
       return;
     }
     advanceComposeSeqGroup(1);
@@ -3417,7 +3424,7 @@ function App(){
       return;
     }
     if(isSchemeBppCompose(currentScheme)){
-      const isSeed = currentScheme === 'AB'
+      const isSeed = isSchemeAppB(currentScheme)
         ? (solid === '今天月经来了' || solid === '今天月经走了')
         : (solid === '月经来了' || solid === '月经走了');
       if(isSeed){
@@ -3614,7 +3621,7 @@ function App(){
         <DockPublisher
           draft={draft}
           draftGuide={periodComposeActive
-            ? (currentScheme === 'AB' ? schemeAbComposeGuide : draftGuide)
+            ? (isSchemeAppB(currentScheme) ? schemeAbComposeGuide : draftGuide)
             : ''}
           onDraft={handleDraftChange}
           onSend={()=>submitText()}
@@ -3735,7 +3742,7 @@ function App(){
         <DockPublisher
           draft={draft}
           draftGuide={periodComposeActive
-            ? (currentScheme === 'AB' ? schemeAbComposeGuide : draftGuide)
+            ? (isSchemeAppB(currentScheme) ? schemeAbComposeGuide : draftGuide)
             : ''}
           onDraft={handleDraftChange}
           onSend={()=>submitText()}
@@ -3769,7 +3776,7 @@ function App(){
           onComposeSeqSwipe={handleComposeSeqSwipe}
           composeSeqTokens={schemeBppTokens}
           onComposeSeqTokenFocus={handleComposeSeqTokenFocus}
-          composeSeqLockPrefix={currentScheme === 'AB'}
+          composeSeqLockPrefix={isSchemeAppB(currentScheme)}
           composeVariant={schemeCComposeActive ? 'C' : (schemeBppComposeActive ? 'B++' : null)}
           composeDay={composeDay}
           composeDayConfirmed={composeDayConfirmed}
@@ -3877,25 +3884,37 @@ function App(){
                   <TweakSection label="方案">
                     <TweakRadio
                       label="当前方案"
-                      value={t.scheme === 'A' ? 'A' : 'AB'}
+                      value={
+                        t.scheme === 'A' ? 'A'
+                          : t.scheme === 'A+' ? 'A+'
+                          : 'A++B'
+                      }
                       options={[
-                        {value:'AB', label:'方案 A+B++'},
+                        {value:'A++B', label:'方案 A++B'},
+                        {value:'A+', label:'方案 A+'},
                         {value:'A', label:'方案 A'},
                       ]}
                       onChange={(v)=>setTweak('scheme', v)}
                     />
                   </TweakSection>
-                  {(t.scheme || 'AB') !== 'A' ? (
-                    <TweakSection label="方案 A+B++">
+                  {isSchemeAppB(t.scheme || 'A++B') ? (
+                    <TweakSection label="方案 A++B">
                       <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
                         今天锁定 + 接续标签；引导随组切换：流量是…／经血颜色是…／痛感…
+                      </div>
+                    </TweakSection>
+                  ) : null}
+                  {t.scheme === 'A+' ? (
+                    <TweakSection label="方案 A+">
+                      <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
+                        月经来了：量多还是少…／月经走了：身体症状是…
                       </div>
                     </TweakSection>
                   ) : null}
                   {t.scheme === 'A' ? (
                     <TweakSection label="方案 A">
                       <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                        月经来了：量多还是少…／月经走了：身体症状是…
+                        仅「今天月经来了／走了」，无灰字引导
                       </div>
                     </TweakSection>
                   ) : null}
@@ -3921,14 +3940,14 @@ function App(){
               {(t.scheme || 'A') === 'A' ? (
                 <TweakSection label="方案 A · 推荐">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                    月经来了：量多还是少…／月经走了：身体症状是…
+                    仅「今天月经来了／走了」，无灰字引导
                   </div>
                 </TweakSection>
               ) : null}
               {(t.scheme || 'A') === 'A+' ? (
                 <TweakSection label="方案 A+">
                   <div className="twk-lbl" style={{opacity:.55, fontSize:11, lineHeight:1.4}}>
-                    来了：，流量是／走了：，症状是；光标停在「是」后
+                    月经来了：量多还是少…／月经走了：身体症状是…
                   </div>
                 </TweakSection>
               ) : null}

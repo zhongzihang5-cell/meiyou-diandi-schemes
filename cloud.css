@@ -2270,7 +2270,6 @@
 .dock-draft-guide-hint{
   color:rgba(0,0,0,0.18);
 }
-html[data-scheme="A+"] .dock-draft-guide-hint,
 html[data-scheme="D"] .dock-draft-guide-hint{
   color:rgba(0,0,0,0.8);
 }
