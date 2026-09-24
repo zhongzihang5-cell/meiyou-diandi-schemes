@@ -5,7 +5,7 @@
 ## 预览
 
 - **A+B++ 细化（对外预览）**：[`ab-refine.html`](./ab-refine.html) / Pages `/ab-refine.html`  
-  固定 **A 灰字引导 + B++ 接续标签**，无方案切换、无 Tweaks。
+  默认 **A 灰字引导 + B++ 接续标签**；Tweaks 可切换 **方案 A+B++** / **方案 A**。
 - 多方案对比（内部）：根目录 `index.html` / Pages `/`
 
 ## 方案说明（对比页）
@@ -27,5 +27,5 @@
 ```js
 // ab-refine.html
 TWEAK_DEFAULTS = { demoScene: "note-quick-record", scheme: "AB" }
-window.__AB_REFINE_PAGE__ = true  // 隐藏 Tweaks / 场景条
+window.__AB_REFINE_PAGE__ = true  // Tweaks 仅 A+B++ / A
 ```
